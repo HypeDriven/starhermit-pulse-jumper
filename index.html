@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#060913" />
+<title>Pulse Jumper</title>
+<style>
+  :root { color-scheme: dark;
+    --bg:#060913; --panel:#0d1526f2; --panel2:#131f38; --text:#e8f6ff;
+    --accent:#22d3ee; --accent2:#e879c6; --gold:#fde047; --danger:#fb7185;
+    --safe-t: env(safe-area-inset-top,0px); --safe-b: env(safe-area-inset-bottom,0px);
+    --safe-l: env(safe-area-inset-left,0px); --safe-r: env(safe-area-inset-right,0px);
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow:hidden; }
+  #app { position:relative; width:100vw; height:100vh; overflow:hidden; }
+  canvas#game-canvas { position:absolute; inset:0; display:block; width:100%; height:100%; touch-action:none; }
+
+  /* --- screens --- */
+  .screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:14px; padding:calc(20px + var(--safe-t)) calc(20px + var(--safe-r))
+    calc(20px + var(--safe-b)) calc(20px + var(--safe-l)); text-align:center; background:var(--panel);
+    z-index:10; overflow-y:auto; }
+  .screen[hidden] { display:none; }
+  .title-main { font-size:clamp(32px,7vw,60px); font-weight:800; letter-spacing:.06em; margin:0;
+    color:#fff; text-shadow:0 0 22px var(--accent), 0 0 46px #22d3ee55; }
+  .subtitle { font-size:clamp(14px,2.2vw,18px); opacity:.85; max-width:70ch; line-height:1.5; margin:0; }
+  h2.screen-title { font-size:clamp(22px,4.5vw,36px); margin:0; color:#fff; letter-spacing:.04em; }
+  .btn { pointer-events:auto; cursor:pointer; border:2px solid transparent; border-radius:10px;
+    min-height:44px; min-width:44px; padding:10px 22px; font-size:clamp(15px,2.4vw,19px); font-weight:700;
+    letter-spacing:.03em; color:#04121a; background:var(--accent); box-shadow:0 4px 18px #22d3ee44;
+    transition:transform .08s ease, filter .12s ease; font-family:inherit; }
+  .btn:hover { filter:brightness(1.1); transform:translateY(-1px); }
+  .btn:focus-visible { outline:3px solid #fff; outline-offset:2px; }
+  .btn.primary { font-size:clamp(19px,3.4vw,26px); padding:14px 48px; }
+  .btn.secondary { background:var(--panel2); color:var(--text); border-color:#2c4066; box-shadow:none; }
+  .btn.danger { background:var(--danger); color:#1a0409; }
+  .btn[disabled] { opacity:.4; cursor:not-allowed; transform:none; filter:none; }
+  .btn-row { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+
+  /* --- HUD --- */
+  #hud { position:absolute; top:var(--safe-t); left:var(--safe-l); right:var(--safe-r);
+    padding:8px 14px; display:flex; align-items:center; gap:14px; z-index:5;
+    font-size:clamp(13px,1.8vw,18px); pointer-events:none; }
+  #hud[hidden] { display:none; }
+  .hud-label { opacity:.7; letter-spacing:.08em; font-size:.8em; }
+  #hud-score { font-weight:700; min-width:4ch; }
+  #hud-progress { flex:1; max-width:34vw; height:8px; background:#1c2c4a; border-radius:4px; overflow:hidden; }
+  #hud-progress-fill { height:100%; width:0%; background:var(--gold); }
+  #hud-form { font-weight:800; letter-spacing:.06em; padding:2px 10px; border-radius:6px;
+    border:2px solid var(--accent); color:var(--accent); }
+  #hud-form.nova { border-color:var(--accent2); color:var(--accent2); }
+  #hud-objective { position:absolute; top:calc(100% + 4px); left:14px; font-size:.85em; opacity:.85; }
+  #hud-pause { pointer-events:auto; margin-left:auto; }
+
+  /* --- touch action buttons --- */
+  #touch-actions { position:absolute; left:var(--safe-l); right:var(--safe-r);
+    bottom:calc(10px + var(--safe-b)); display:none; justify-content:space-between;
+    padding:0 16px; z-index:6; pointer-events:none; }
+  body.playing.touch #touch-actions { display:flex; }
+  #touch-actions .btn { pointer-events:auto; width:min(34vw,180px); height:72px; font-size:18px;
+    border-radius:16px; opacity:.92; }
+  body.left-handed #touch-actions { flex-direction:row-reverse; }
+
+  /* --- results breakdown --- */
+  table.breakdown { border-collapse:collapse; margin:0 auto; font-size:clamp(14px,2vw,18px); }
+  table.breakdown td { padding:4px 16px; text-align:left; }
+  table.breakdown td:last-child { text-align:right; font-variant-numeric:tabular-nums; }
+  table.breakdown tr.total td { border-top:2px solid #3b5383; font-weight:800; color:#fff; }
+  .results-title { font-size:clamp(26px,6vw,48px); font-weight:800; margin:0; color:#fff; }
+  .best-line { opacity:.85; }
+
+  /* --- rails (wide desktop) --- */
+  @media (min-width:1024px) {
+    .screen { flex-direction:row; flex-wrap:wrap; align-content:center; }
+    .rail { flex:0 0 220px; max-width:220px; text-align:left; font-size:15px; }
+    .rail.left { order:-1; margin-right:auto; }
+    .rail.right { margin-left:auto; }
+    .screen-core { flex:1 1 420px; max-width:70ch; display:flex; flex-direction:column;
+      align-items:center; gap:14px; }
+  }
+  .screen-core { display:contents; }
+  @media (min-width:1024px) { .screen-core { display:flex; } }
+  .screen > * { max-width:100%; }
+  p, .subtitle { max-width:70ch; }
+
+  /* --- level grid --- */
+  .level-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(56px,1fr));
+    gap:8px; width:min(90vw,560px); max-height:46vh; overflow-y:auto; padding:4px; }
+  .level-grid .btn { padding:8px 0; font-size:16px; min-width:0; }
+  .level-grid .btn.mastery { border-color:var(--gold); }
+  .level-grid .btn.locked { background:#1a2438; color:#5a6b8c; box-shadow:none; }
+
+  /* --- help cards --- */
+  .cards { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; max-width:900px; }
+  .card { background:var(--panel2); border:1px solid #2c4066; border-radius:12px; padding:14px 18px;
+    width:min(86vw,260px); text-align:left; }
+  .card h3 { margin:0 0 6px; font-size:16px; color:var(--accent); }
+  .card p { margin:0; font-size:14px; line-height:1.5; opacity:.9; }
+  kbd { background:#0a1322; border:1px solid #3b5383; border-radius:5px; padding:1px 7px; font-size:.9em; }
+
+  /* --- settings --- */
+  .settings-grid { display:flex; flex-direction:column; gap:10px; width:min(88vw,420px); text-align:left; }
+  .settings-grid label { display:flex; align-items:center; justify-content:space-between; gap:12px;
+    min-height:44px; font-size:16px; }
+  .settings-grid input[type=range] { width:150px; }
+  .settings-grid select { background:var(--panel2); color:var(--text); border:1px solid #3b5383;
+    border-radius:6px; padding:8px; font-size:15px; min-height:44px; }
+  .settings-grid input[type=checkbox] { width:24px; height:24px; }
+
+  .live { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);
+    clip-path:inset(50%); white-space:nowrap; }
+
+  #webgl-error { z-index:20; }
+
+  /* accessibility modes */
+  body.high-contrast { --bg:#000; --panel:#000f; --panel2:#111; --text:#fff; --accent:#00ffff;
+    --accent2:#ff7ad9; --gold:#ffff00; }
+  body.high-contrast .btn.secondary { border-color:#888; }
+  body.larger-text { font-size:120%; }
+  body.larger-text .btn { font-size:clamp(18px,3vw,23px); }
+  body.reduced-motion * { transition:none !important; animation:none !important; }
+
+  @media (orientation:landscape) and (max-height:500px) {
+    #hud { font-size:13px; }
+    #touch-actions .btn { height:56px; }
+    .screen { gap:8px; }
+  }
+</style>
+<script type="importmap">
+  { "imports": { "three": "/src/render/vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="game-canvas"></canvas>
+
+  <div id="hud" hidden>
+    <span class="hud-label" id="hud-score-label">SCORE</span><span id="hud-score" aria-hidden="true">0</span>
+    <div id="hud-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="hud-progress-fill"></div>
+    </div>
+    <span id="hud-form">PULSE</span>
+    <button type="button" class="btn secondary" id="hud-pause" aria-label="Pause game">II</button>
+    <div id="hud-objective"></div>
+  </div>
+
+  <div id="touch-actions" aria-hidden="false">
+    <button type="button" class="btn secondary" id="touch-form">FORM<br><small>F / left tap</small></button>
+    <button type="button" class="btn" id="touch-jump">JUMP<br><small>Space / right tap</small></button>
+  </div>
+
+  <!-- Screens are populated by src/ui/dom-ui.js -->
+  <section class="screen" id="screen-title" aria-labelledby="title-heading"></section>
+  <section class="screen" id="screen-modes" hidden aria-labelledby="modes-heading"></section>
+  <section class="screen" id="screen-journey" hidden aria-labelledby="journey-heading"></section>
+  <section class="screen" id="screen-practice" hidden></section>
+  <section class="screen" id="screen-challenge" hidden></section>
+  <section class="screen" id="screen-pause" hidden aria-labelledby="pause-heading"></section>
+  <section class="screen" id="screen-results" hidden aria-labelledby="results-heading"></section>
+  <section class="screen" id="screen-help" hidden aria-labelledby="help-heading"></section>
+  <section class="screen" id="screen-settings" hidden aria-labelledby="settings-heading"></section>
+  <section class="screen" id="screen-countdown" hidden></section>
+  <section class="screen" id="webgl-error" hidden>
+    <h2 class="screen-title">3D unavailable</h2>
+    <p class="subtitle">Pulse Jumper needs WebGL to render its neon world, and your browser
+      could not provide it. Your settings and progress are safely stored locally. Try a recent
+      version of Chrome, Firefox, Edge or Safari with hardware acceleration enabled.</p>
+  </section>
+
+  <div class="live" aria-live="polite" id="live-objective"></div>
+  <div class="live" aria-live="polite" id="live-score"></div>
+  <div class="live" aria-live="assertive" id="live-results"></div>
+</div>
+<script type="module" src="/src/game.js"></script>
+</body>
+</html>

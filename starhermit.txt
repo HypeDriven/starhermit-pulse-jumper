@@ -1,0 +1,3 @@
+name=Pulse Jumper
+launch=index.html
+server=server.js

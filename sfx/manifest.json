@@ -1,0 +1,74 @@
+[
+  {
+    "name": "jump-launch",
+    "seconds": 1,
+    "prompt": "Short springy neon synth whoosh jumping upward, quick rising pitch sweep with a soft electronic pop attack, arcade platformer jump sound",
+    "event": "playJump"
+  },
+  {
+    "name": "jump-soft",
+    "seconds": 1,
+    "prompt": "Light bouncy electronic blip with a quick upward chirp, like a small rubber ball bouncing on a metal pad, short arcade hop sound",
+    "event": "playJump"
+  },
+  {
+    "name": "form-shift-pulse",
+    "seconds": 1,
+    "prompt": "Futuristic energy morph sound, a quick descending electric shimmer like a glowing body compressing into a tight pulse, sci-fi transformation swoosh",
+    "event": "playFormChange"
+  },
+  {
+    "name": "form-shift-nova",
+    "seconds": 1,
+    "prompt": "Bright explosive energy morph sound, a short rising electric burst with a sparkling tail like a star flaring into nova form, sci-fi transformation zap",
+    "event": "playFormChange"
+  },
+  {
+    "name": "checkpoint-chime",
+    "seconds": 1,
+    "prompt": "Two-tone crystalline checkpoint chime, clear glassy bells ringing in a quick rising interval, bright and reassuring arcade confirmation sound",
+    "event": "playCheckpoint"
+  },
+  {
+    "name": "gem-pickup",
+    "seconds": 1,
+    "prompt": "Sparkling crystal gem pickup sound, a tiny bright glissando of glass chimes with a sweet high ping, jewel collection sparkle",
+    "event": "playGem"
+  },
+  {
+    "name": "gem-sparkle",
+    "seconds": 1,
+    "prompt": "Delicate twinkling jewel sound, a fast shimmer of tiny metallic pings like light refracting through a diamond, short magical sparkle",
+    "event": "playGem"
+  },
+  {
+    "name": "death-zap",
+    "seconds": 2,
+    "prompt": "Arcade player death sound, a harsh electric zap collapsing downward into a low fizzling thud, like a neon circuit shorting out and shattering",
+    "event": "playDeath"
+  },
+  {
+    "name": "win-fanfare",
+    "seconds": 3,
+    "prompt": "Short victorious arcade fanfare, four bright rising synth brass notes with a shimmering cymbal-like sparkle at the end, level complete celebration jingle",
+    "event": "playWin"
+  },
+  {
+    "name": "ui-click",
+    "seconds": 1,
+    "prompt": "Crisp minimal UI button click, a short clean digital tap with a soft rounded attack, modern game menu selection sound",
+    "event": "playUi"
+  },
+  {
+    "name": "ui-confirm",
+    "seconds": 1,
+    "prompt": "Friendly UI confirmation sound, a quick two-note rising digital beep with a warm rounded tone, positive menu accept sound",
+    "event": "playUi"
+  },
+  {
+    "name": "ui-back",
+    "seconds": 1,
+    "prompt": "Soft UI back navigation sound, a short low mellow digital blip with a gentle falling pitch, understated menu cancel sound",
+    "event": "playUi"
+  }
+]
