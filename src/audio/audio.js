@@ -53,11 +53,18 @@ function playSample(eventName) {
   }
   const i = (variantCursor.get(eventName) || 0) % ready.length;
   variantCursor.set(eventName, i + 1);
-  const src = ctx.createBufferSource();
-  src.buffer = ready[i];
-  src.connect(effectsBus);
-  src.start();
-  return true;
+  const buffer = ready[i];
+  if (!buffer || typeof buffer.duration !== 'number') return false;
+  try {
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(effectsBus);
+    src.start();
+    return true;
+  } catch {
+    sampleCache.set(names[i], 'failed');
+    return false;
+  }
 }
 
 function ensureContext() {

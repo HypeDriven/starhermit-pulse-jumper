@@ -10,7 +10,7 @@ import {
 } from './core/levels.js';
 import { buildEnvelope } from './core/session.js';
 import { loadSave, storeSave } from './core/save.js';
-import * as audio from './audio/audio.js';
+import * as audio from './audio/audio.js?v=production-qa-1';
 import * as gfx from './render/three-renderer.js';
 import * as ui from './ui/dom-ui.js';
 
@@ -288,6 +288,11 @@ function leaveToTitle() {
 
 // --- Server time + daily ------------------------------------------------------
 async function syncDaily() {
+  if (/^[0-9a-f-]{36}\.starhermit\.com$/i.test(location.hostname)) {
+    dailyInfo = null;
+    ui.setDailyLine('Daily challenge: local UTC day, unranked.');
+    return;
+  }
   try {
     const t0 = Date.now();
     const r = await fetch('/api/v1/time');
