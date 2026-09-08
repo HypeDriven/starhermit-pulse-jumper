@@ -16,7 +16,7 @@ import { scoreOf } from './src/core/rules.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 8090;
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.PULSE_JUMPER_DATA_DIR || path.join(__dirname, 'data');
 const BOARD_FILE = path.join(DATA_DIR, 'leaderboard.json');
 const MAX_BOARD = 100;
 
@@ -58,7 +58,18 @@ function rateLimited(ip) {
   if (now > b.reset) { b.count = 0; b.reset = now + 60000; }
   b.count += 1;
   rateBuckets.set(ip, b);
+  // Drop expired buckets so a long-running process does not grow unbounded.
+  if (rateBuckets.size > 1000) {
+    for (const [k, v] of rateBuckets) if (now > v.reset) rateBuckets.delete(k);
+  }
   return b.count > 20;
+}
+
+// Paths never served as static content: VCS metadata, dependencies, server
+// state and local tooling. Everything else under the project root is public.
+const PRIVATE_SEGMENTS = new Set(['node_modules', 'data', 'tests', '.git', '.local-data']);
+function isPrivatePath(p) {
+  return p.split('/').some((seg) => seg.startsWith('.') || PRIVATE_SEGMENTS.has(seg));
 }
 
 export function createApp() {
@@ -136,8 +147,10 @@ export function createApp() {
   // Static files with explicit MIME types, confined to the project root.
   app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-    let p = decodeURIComponent(req.path);
+    let p;
+    try { p = decodeURIComponent(req.path); } catch (_) { return res.status(400).json({ error: 'bad-path' }); }
     if (p === '/') p = '/index.html';
+    if (p.includes('\0') || isPrivatePath(p)) return res.status(403).json({ error: 'forbidden' });
     const file = path.normalize(path.join(__dirname, p));
     if (!file.startsWith(__dirname + path.sep)) return res.status(403).json({ error: 'forbidden' });
     fs.stat(file, (err, st) => {

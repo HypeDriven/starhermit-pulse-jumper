@@ -6,7 +6,7 @@
 
 import {
   STEP_SECONDS, GRAVITY, JUMP_VELOCITY, GROUND_Y, PLAYER_RADIUS, START_X,
-  OBSTACLE_HALF_WIDTH, GEM_RADIUS,
+  OBSTACLE_HALF_WIDTH, GEM_RADIUS, LOW_HEIGHT, GATE_HEIGHT, GEM_Y,
   FORM_PULSE, FORM_NOVA,
   SCORE_PER_CHECKPOINT, SCORE_PER_GEM, SCORE_FINISH_BONUS,
   SCORE_ATTEMPT_PENALTY, MAX_ATTEMPT_PENALTY, CONTENT_VERSION,
@@ -133,7 +133,7 @@ export function applyCommand(state, level, type) {
     const o = level.obstacles[s.obstacleIndex];
     if (s.x < o.x - OBSTACLE_HALF_WIDTH - PLAYER_RADIUS) break;
     const x0 = o.x - OBSTACLE_HALF_WIDTH, x1 = o.x + OBSTACLE_HALF_WIDTH;
-    const h = o.kind === 'gate' ? 6 : 1.5;
+    const h = o.kind === 'gate' ? GATE_HEIGHT : LOW_HEIGHT;
     if (circleRect(s.x, s.y, PLAYER_RADIUS, x0, x1, GROUND_Y, GROUND_Y + h)) {
       const phased = o.kind === 'gate' && s.form === FORM_NOVA;
       if (!phased) {
@@ -151,7 +151,7 @@ export function applyCommand(state, level, type) {
   // Gems.
   while (s.gemIndex < level.gems.length) {
     const g = level.gems[s.gemIndex];
-    const gy = typeof g.y === 'number' ? g.y : 1.6;
+    const gy = typeof g.y === 'number' ? g.y : GEM_Y;
     if (g.x < s.x - GEM_RADIUS - PLAYER_RADIUS) { s.gemIndex += 1; continue; }
     if (g.x > s.x + GEM_RADIUS + PLAYER_RADIUS) break;
     const dx = s.x - g.x, dy = s.y - gy;

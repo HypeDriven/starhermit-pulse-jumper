@@ -36,6 +36,8 @@ let levelGroup = null;
 let pulseRings = [];
 let particles = null;
 let checkpointRings = [];
+let gemMeshes = [];
+let lastGemsCollected = 0;
 let currentTheme = 'neon-grid';
 let shake = 0;
 
@@ -117,7 +119,7 @@ export function loadLevel(level) {
   if (!scene) return;
   if (levelGroup) { scene.remove(levelGroup); disposeGroup(levelGroup); }
   levelGroup = new THREE.Group();
-  pulseRings = []; checkpointRings = [];
+  pulseRings = []; checkpointRings = []; gemMeshes = []; lastGemsCollected = 0;
   setTheme(level.theme);
   const p = THEME_PALETTES[currentTheme];
 
@@ -181,6 +183,7 @@ export function loadLevel(level) {
     m.position.set(g.x, typeof g.y === 'number' ? g.y : 1.6, 0);
     m.userData.gem = true;
     levelGroup.add(m);
+    gemMeshes.push(m);
   }
 
   // Checkpoints: vertical rings that pulse on the beat.
@@ -220,6 +223,21 @@ export function loadLevel(level) {
   scene.add(levelGroup);
 }
 
+// Hide the gem the player just picked up (the nearest still-visible one).
+function consumeGems(count, px, py) {
+  for (let i = 0; i < count; i++) {
+    let best = null, bestD = Infinity;
+    for (const m of gemMeshes) {
+      if (!m.visible) continue;
+      const dx = m.position.x - px, dy = m.position.y - py;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) { bestD = d; best = m; }
+    }
+    if (!best) return;
+    best.visible = false;
+  }
+}
+
 export function triggerShake(amount) {
   if (!reducedMotion) shake = Math.min(shake + amount, 0.5);
 }
@@ -238,6 +256,14 @@ export function render(state, prev, alpha, beatPhase) {
   playerRing.scale.setScalar(isNova ? 1.5 : 1);
   playerMesh.position.set(px, py, 0);
   playerMesh.rotation.z = -px * 0.8;
+
+  // Collected gems leave the world so the pickup reads visually.
+  if (state.gemsCollected > lastGemsCollected) {
+    consumeGems(state.gemsCollected - lastGemsCollected, px, py);
+  } else if (state.gemsCollected < lastGemsCollected) {
+    for (const m of gemMeshes) m.visible = true; // run restarted on the same level
+  }
+  lastGemsCollected = state.gemsCollected;
 
   // Beat pulse on rings; suppressed under reduced motion.
   const pulse = reducedMotion ? 0 : Math.max(0, Math.sin(beatPhase * Math.PI * 2)) * 0.25;

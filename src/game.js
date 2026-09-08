@@ -29,10 +29,10 @@ let prevState = null;  // previous snapshot for interpolation
 let commands = [];
 let attempts = 0;
 let queuedAction = null; // at most one action per tick, quantized
-let pendingTicks = 0;
 let accumulator = 0;
 let lastFrame = 0;
 let countdownLeft = 0;
+let pausedFrom = null; // machine state to restore when unpausing
 let dailyInfo = null; // { date, seed, contentVersion }
 let clockOffset = 0;  // serverNow - clientNow
 
@@ -66,6 +66,12 @@ function pickLevel(m, arg) {
 }
 
 function startRun(m, arg, keepAttempts = false) {
+  // Resolve the implicit argument now so retry/next always target the stage
+  // that is actually being played (journeyUnlocked moves on a clear).
+  if (m === 'journey' && !arg) arg = Math.min(Math.max(1, save.journeyUnlocked), 40);
+  if (m === 'learn' && !arg) arg = 1;
+  if (m === 'practice' && !arg) arg = 1;
+  if (m === 'challenge' && !arg) arg = 'moves';
   mode = m; modeArg = arg;
   level = pickLevel(m, arg);
   if (!keepAttempts) attempts = 0;
@@ -164,7 +170,7 @@ function finishRun() {
       const d = dailyInfo ? dailyInfo.date : today();
       const best = save.dailyBest[d];
       if (best === undefined || score.total > best) { save.dailyBest[d] = score.total; persist(); }
-      submitDailyScore(score.total);
+      submitDailyScore();
     }
   }
   if (state.jumpsUsed + state.formsUsed === 0 && state.phase === 'dead') unlockAch('oof');
@@ -177,17 +183,20 @@ function finishRun() {
     : mode === 'daily' ? save.dailyBest[dailyInfo ? dailyInfo.date : today()] : null;
 
   const canNext = won && !failReason &&
-    ((mode === 'journey' && (modeArg || 1) < 40) || (mode === 'learn' && level.tutorialFlags.lesson < 3));
+    ((mode === 'journey' && modeArg < 40) || (mode === 'learn' && level.tutorialFlags.lesson < 3));
   ui.setHudVisible(false);
   ui.showResults({
     headline, score, best, extraLines: lines, canNext,
-    onNext: () => startRun(mode, mode === 'learn' ? level.tutorialFlags.lesson + 1 : (modeArg || save.journeyUnlocked - 1) + 1),
+    onNext: () => startRun(mode, mode === 'learn' ? level.tutorialFlags.lesson + 1 : modeArg + 1),
   });
 }
 
-function submitDailyScore(scoreTotal) {
+function submitDailyScore() {
   if (!dailyInfo) return;
+  // The server re-simulates with attempts = 0, so the claim must be the
+  // unpenalised total; the local best keeps the penalised score.
   const envelope = buildEnvelope(level, commands, 0);
+  const scoreTotal = envelope.result.score.total;
   fetch('/api/v1/scores', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -241,8 +250,8 @@ function onKeyDown(e) {
   if (e.repeat) return;
   const k = e.key;
   if (k === 'Escape' || k === 'p' || k === 'P') {
-    if (machine === 'active') pauseGame();
-    else if (machine === 'paused') resumeGame();
+    if (machine === 'paused') resumeGame();
+    else pauseGame(); // no-op unless a run is counting down or active
     return;
   }
   // Don't steal keys from form controls in menus.
@@ -266,7 +275,8 @@ function onCanvasPointer(e) {
 }
 
 function pauseGame() {
-  if (machine !== 'active') return;
+  if (machine !== 'active' && machine !== 'countdown') return;
+  pausedFrom = machine;
   machine = 'paused';
   screenBeforeOverlay = 'screen-pause';
   ui.showScreen('screen-pause');
@@ -274,9 +284,12 @@ function pauseGame() {
 
 function resumeGame() {
   if (machine !== 'paused') return;
-  machine = 'active';
+  machine = pausedFrom === 'countdown' ? 'countdown' : 'active';
+  pausedFrom = null;
   lastFrame = 0; // discard time spent paused
-  ui.showScreen(null);
+  accumulator = 0;
+  if (machine === 'countdown') ui.showCountdown(String(Math.max(1, countdownLeft)));
+  else ui.showScreen(null);
 }
 
 function leaveToTitle() {
@@ -371,7 +384,7 @@ function boot() {
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      if (machine === 'active') pauseGame();
+      pauseGame();
       audio.suspend();
     } else {
       audio.resume();

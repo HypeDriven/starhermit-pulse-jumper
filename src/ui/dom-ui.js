@@ -28,6 +28,18 @@ function btn(label, className, onClick, id) {
   return b;
 }
 
+// Reset a screen and return its centred content column. Every screen needs the
+// .screen-core wrapper: on wide viewports .screen itself is a row (that is how
+// the title rails sit beside the content), so unwrapped children would lay out
+// side by side instead of stacking.
+function core(screenId) {
+  const s = $(screenId);
+  s.innerHTML = '';
+  const c = el('div', { class: 'screen-core' });
+  s.append(c);
+  return c;
+}
+
 const SCREENS = ['screen-title', 'screen-modes', 'screen-journey', 'screen-practice',
   'screen-challenge', 'screen-pause', 'screen-results', 'screen-help', 'screen-settings',
   'screen-countdown', 'webgl-error'];
@@ -109,8 +121,7 @@ function buildModes() {
 }
 
 function buildJourney(save) {
-  const s = $('screen-journey');
-  s.innerHTML = '';
+  const s = core('screen-journey');
   s.append(el('h2', { class: 'screen-title', id: 'journey-heading' }, 'Journey'));
   const grid = el('div', { class: 'level-grid', role: 'group', ariaLabel: 'Journey stages' });
   for (let i = 1; i <= journeyCount(); i++) {
@@ -129,8 +140,7 @@ function buildJourney(save) {
 }
 
 function buildPractice() {
-  const s = $('screen-practice');
-  s.innerHTML = '';
+  const s = core('screen-practice');
   s.append(el('h2', { class: 'screen-title' }, 'Practice'));
   s.append(el('p', { class: 'subtitle' }, 'Select a difficulty. Unranked; restart any time.'));
   const row = el('div', { class: 'btn-row' });
@@ -141,8 +151,7 @@ function buildPractice() {
 }
 
 function buildChallenge() {
-  const s = $('screen-challenge');
-  s.innerHTML = '';
+  const s = core('screen-challenge');
   s.append(el('h2', { class: 'screen-title' }, 'Challenge'));
   const cards = el('div', { class: 'cards' });
   const c1 = el('div', { class: 'card' });
@@ -156,8 +165,7 @@ function buildChallenge() {
 }
 
 function buildPause() {
-  const s = $('screen-pause');
-  s.innerHTML = '';
+  const s = core('screen-pause');
   s.append(el('h2', { class: 'screen-title', id: 'pause-heading' }, 'Paused'));
   const col = el('div', { class: 'settings-grid' });
   col.append(btn('Resume', 'primary', H.onResume, 'resume-btn'));
@@ -169,8 +177,7 @@ function buildPause() {
 }
 
 export function showResults({ headline, score, best, extraLines = [], canNext, onNext }) {
-  const s = $('screen-results');
-  s.innerHTML = '';
+  const s = core('screen-results');
   s.append(el('h2', { class: 'results-title', id: 'results-heading' }, headline));
   const table = el('table', { class: 'breakdown' });
   const row = (label, val) => {
@@ -209,8 +216,7 @@ const HELP_CARDS = [
 ];
 
 function buildHelp() {
-  const s = $('screen-help');
-  s.innerHTML = '';
+  const s = core('screen-help');
   s.append(el('h2', { class: 'screen-title', id: 'help-heading' }, 'How to play'));
   const cards = el('div', { class: 'cards' });
   for (const [title, html] of HELP_CARDS) {
@@ -237,8 +243,7 @@ const SETTING_DEFS = [
 ];
 
 function buildSettings(settings) {
-  const s = $('screen-settings');
-  s.innerHTML = '';
+  const s = core('screen-settings');
   s.append(el('h2', { class: 'screen-title', id: 'settings-heading' }, 'Settings'));
   const grid = el('div', { class: 'settings-grid' });
   for (const [key, label, kind, options] of SETTING_DEFS) {
@@ -279,8 +284,7 @@ export function refreshMetaScreens(save) {
 }
 
 export function showCountdown(text) {
-  const s = $('screen-countdown');
-  s.innerHTML = '';
+  const s = core('screen-countdown');
   s.append(el('div', { class: 'title-main', role: 'status' }, text));
   showScreen('screen-countdown');
 }
