@@ -40,6 +40,9 @@ let gemMeshes = [];
 let lastGemsCollected = 0;
 let currentTheme = 'neon-grid';
 let shake = 0;
+let currentLevel = null;
+let assistMarker = null;
+let timingAssist = false;
 
 export function isWebGLAvailable() {
   try {
@@ -94,6 +97,10 @@ export function setQuality(tier) {
 
 export function setReducedMotion(on) { reducedMotion = !!on; }
 
+// Timing assist: show a ground marker at the recommended action point for
+// the next obstacle (amber = jump, violet = form change).
+export function setTimingAssist(on) { timingAssist = !!on; }
+
 export function setTheme(name) {
   currentTheme = THEME_PALETTES[name] ? name : 'neon-grid';
   if (!scene) return;
@@ -117,6 +124,7 @@ function disposeGroup(group) {
 // Build (or rebuild) all level-dependent meshes.
 export function loadLevel(level) {
   if (!scene) return;
+  currentLevel = level;
   if (levelGroup) { scene.remove(levelGroup); disposeGroup(levelGroup); }
   levelGroup = new THREE.Group();
   pulseRings = []; checkpointRings = []; gemMeshes = []; lastGemsCollected = 0;
@@ -204,6 +212,15 @@ export function loadLevel(level) {
   fin.position.set(level.length, GROUND_Y + 5, 0);
   levelGroup.add(fin);
 
+  // Timing-assist landing marker (visibility driven per frame in render()).
+  assistMarker = new THREE.Mesh(
+    new THREE.RingGeometry(0.9, 1.35, 32),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
+  assistMarker.rotation.x = -Math.PI / 2;
+  assistMarker.position.y = GROUND_Y + 0.02;
+  assistMarker.visible = false;
+  levelGroup.add(assistMarker);
+
   // Beat particles (bounded pool, decorative only — never raycast).
   if (quality.particles > 0) {
     const n = quality.particles;
@@ -280,6 +297,21 @@ export function render(state, prev, alpha, beatPhase) {
     }
   }
 
+  // Timing assist: ring on the ground at the recommended action point for
+  // the next obstacle (same lead the offline solver jumps on).
+  if (assistMarker) {
+    const next = (timingAssist && state.phase === 'active' && currentLevel)
+      ? currentLevel.obstacles[state.obstacleIndex] : null;
+    if (next && next.x > state.x + 0.5) {
+      const lead = next.kind === 'low' ? state.speed * 0.37 : state.speed * 0.5;
+      assistMarker.visible = true;
+      assistMarker.position.set(Math.max(state.x + 1, next.x - lead), GROUND_Y + 0.02, 0);
+      assistMarker.material.color.setHex(next.kind === 'low' ? 0xf59e0b : 0x8b5cf6);
+    } else {
+      assistMarker.visible = false;
+    }
+  }
+
   // Authored, drift-free camera: placed fresh from interpolated position.
   let sx = 0, sy = 0;
   if (shake > 0.001) {
@@ -307,4 +339,9 @@ export function unmount() {
   if (levelGroup && scene) { scene.remove(levelGroup); disposeGroup(levelGroup); levelGroup = null; }
   if (renderer) { renderer.dispose(); renderer = null; }
   scene = null; camera = null; canvas = null; playerMesh = null; particles = null;
+}
+
+// Read-only introspection for automated tests (no gameplay effect).
+export function debugState() {
+  return { timingAssist, assistVisible: !!(assistMarker && assistMarker.visible) };
 }

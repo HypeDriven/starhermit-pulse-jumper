@@ -223,12 +223,13 @@ async function runPass(browser, name, ctxOpts, { full }) {
       await page.check('#setting-reducedMotion');
       await page.check('#setting-highContrast');
       await page.check('#setting-muted');
+      await page.check('#setting-timingAssist');
       await page.waitForFunction(() =>
         document.body.classList.contains('reduced-motion') && document.body.classList.contains('high-contrast'));
       await screenshot('settings');
       await page.click('#screen-settings button:has-text("Back")');
       await page.waitForSelector('#screen-title', { state: 'visible' });
-      ok(`${name}: settings applied (low quality + reduced-motion + high-contrast + muted)`);
+      ok(`${name}: settings applied (low quality + reduced-motion + high-contrast + muted + timing-assist)`);
     }
 
     // Mode select → Journey
@@ -249,6 +250,14 @@ async function runPass(browser, name, ctxOpts, { full }) {
     const at1 = await waitActive(page, base);
     await page.waitForFunction(() => !document.getElementById('screen-countdown').hidden === false);
     ok(`${name}: stage 1 active (countdown → play), HUD live`);
+
+    if (full) {
+      // Timing assist was enabled in settings; the landing marker for the next
+      // obstacle must appear in the 3D scene while the run is active.
+      await page.waitForFunction(() => window.__pulseDebug && window.__pulseDebug.gfxDebug().assistVisible === true,
+        null, { timeout: 5000 });
+      ok(`${name}: timing-assist landing marker visible in scene`);
+    }
 
     await playPlan(page, at1, s1.plan,
       () => page.keyboard.press('ArrowUp'), () => page.keyboard.press('ArrowDown'));

@@ -48,11 +48,33 @@ function applySettings() {
   if (gl) {
     gfx.setQuality(save.settings.graphicsTier);
     gfx.setReducedMotion(save.settings.reducedMotion);
+    gfx.setTimingAssist(save.settings.timingAssist);
   }
 }
 
+const ACH_LABELS = {
+  'first-clear': 'First Clear',
+  'journey-complete': 'Journey Complete',
+  'tutorial-graduate': 'Tutorial Graduate',
+  'oof': 'Oof',
+  'streak-7': 'Seven-Day Pulse',
+};
+
 function unlockAch(key) {
-  if (!save.achievements[key]) { save.achievements[key] = true; persist(); }
+  if (!ACH_LABELS[key] || save.achievements[key]) return;
+  save.achievements[key] = true;
+  persist();
+  ui.announce('results', `Achievement unlocked: ${ACH_LABELS[key]}.`);
+}
+
+// Consecutive UTC days with a cleared daily run, ending today or yesterday.
+function dailyStreak() {
+  const days = save.dailyBest;
+  let ms = Date.parse(today() + 'T00:00:00Z');
+  if (!days[utcDay(ms)]) ms -= 86400000; // today's run may not exist yet
+  let streak = 0;
+  while (days[utcDay(ms)]) { streak += 1; ms -= 86400000; }
+  return streak;
 }
 
 // --- Run lifecycle ------------------------------------------------------------
@@ -170,6 +192,7 @@ function finishRun() {
       const d = dailyInfo ? dailyInfo.date : today();
       const best = save.dailyBest[d];
       if (best === undefined || score.total > best) { save.dailyBest[d] = score.total; persist(); }
+      if (dailyStreak() >= 7) unlockAch('streak-7');
       submitDailyScore();
     }
   }
@@ -367,6 +390,7 @@ function boot() {
   if (!gl) { ui.showScreen('webgl-error'); return; }
   gfx.setQuality(save.settings.graphicsTier);
   gfx.setReducedMotion(save.settings.reducedMotion);
+  gfx.setTimingAssist(save.settings.timingAssist);
   gfx.loadLevel(journeyLevel(1)); // ambient backdrop behind menus
 
   canvas.addEventListener('pointerdown', onCanvasPointer);
@@ -396,6 +420,8 @@ function boot() {
   ui.showScreen('screen-title');
   syncDaily();
   requestAnimationFrame(frame);
+  // Read-only hook for automated tests.
+  window.__pulseDebug = { gfxDebug: gfx.debugState };
 }
 
 if (typeof document !== 'undefined') {

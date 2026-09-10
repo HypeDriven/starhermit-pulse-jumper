@@ -90,6 +90,7 @@ function buildTitle(save) {
   left.append(el('p', {}, `Journey stage ${save.journeyUnlocked} of ${journeyCount()} unlocked.`));
   const done = Object.keys(save.tutorialDone).length;
   left.append(el('p', {}, `Lessons completed: ${done}/3.`));
+  left.append(el('p', {}, `Achievements unlocked: ${Object.keys(save.achievements).length}.`));
   s.append(left);
   const right = el('div', { class: 'rail right' });
   right.append(el('h3', {}, 'Today'));
