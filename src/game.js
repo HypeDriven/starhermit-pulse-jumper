@@ -3,13 +3,14 @@
 // Game orchestrator: state machine, fixed-step simulation loop with
 // interpolation, input routing, persistence, audio, and server integration.
 
-import { STEP_SECONDS, FORM_NOVA } from './core/constants.js';
+import { STEP_SECONDS, FORM_NOVA, CONTENT_VERSION } from './core/constants.js';
 import { createRun, applyCommand, scoreOf, hashState } from './core/rules.js';
 import {
   journeyLevel, dailyLevel, practiceLevel, challengeLevel, tutorialLevel, dailySeedFor,
 } from './core/levels.js';
 import { buildEnvelope } from './core/session.js';
-import { loadSave, storeSave } from './core/save.js';
+import { loadSave, storeSave, decodeSave } from './core/save.js';
+import * as platform from './platform.js';
 import * as audio from './audio/audio.js?v=production-qa-1';
 import * as gfx from './render/three-renderer.js';
 import * as ui from './ui/dom-ui.js';
@@ -37,10 +38,24 @@ let dailyInfo = null; // { date, seed, contentVersion }
 let clockOffset = 0;  // serverNow - clientNow
 
 // --- Helpers ----------------------------------------------------------------
+let profileName = null; // platform nickname (hosted only)
+let syncState = null;   // saving | synced | offline (cloud mirror)
+function renderProfileLine() { ui.setProfileLine(platform.hosted ? profileName : null, syncState); }
+
 function utcDay(ms) { return new Date(ms).toISOString().slice(0, 10); }
 function today() { return utcDay(Date.now() + clockOffset); }
 
-function persist() { storeSave(save); }
+// The daily seed is derived client-side from the UTC day (core/levels.js);
+// server calls only refine the clock and mark the board ranked.
+function localDailyInfo() {
+  const date = today();
+  return { date, seed: dailySeedFor(date) >>> 0, contentVersion: CONTENT_VERSION };
+}
+
+function persist() {
+  storeSave(save);
+  platform.cloudDirty(); // no-op in local mode (gated inside the platform adapter)
+}
 
 function applySettings() {
   ui.applyAccessibility(save.settings);
@@ -94,6 +109,7 @@ function startRun(m, arg, keepAttempts = false) {
   if (m === 'learn' && !arg) arg = 1;
   if (m === 'practice' && !arg) arg = 1;
   if (m === 'challenge' && !arg) arg = 'moves';
+  if (m === 'daily') ui.showDailyNote(null); // stale fallback notes don't carry across days
   mode = m; modeArg = arg;
   level = pickLevel(m, arg);
   if (!keepAttempts) attempts = 0;
@@ -219,17 +235,48 @@ function submitDailyScore() {
   // The server re-simulates with attempts = 0, so the claim must be the
   // unpenalised total; the local best keeps the penalised score.
   const envelope = buildEnvelope(level, commands, 0);
-  const scoreTotal = envelope.result.score.total;
-  fetch('/api/v1/scores', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: 'guest', seed: dailyInfo.seed, date: dailyInfo.date,
-      contentVersion: dailyInfo.contentVersion,
-      commands: envelope.commands, scoreClaim: scoreTotal,
-    }),
-  }).then((r) => r.json()).then((res) => {
+  const claim = {
+    seed: dailyInfo.seed, date: dailyInfo.date,
+    contentVersion: dailyInfo.contentVersion,
+    commands: envelope.commands, scoreClaim: envelope.result.score.total,
+  };
+  const send = (name) => fetch('/api/v1/scores', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(platform.hosted ? { authorization: 'Bearer ' + platform.getToken() } : {}),
+    },
+    body: JSON.stringify(name ? { ...claim, name } : claim),
+  });
+  // Hosted: the game's own validation backend authenticates the launch token
+  // (its-backend); on the platform host it is absent — fall back gracefully.
+  const fallback = () => {
+    const text = 'Daily validation server unavailable — your best is saved to your account.';
+    ui.announce('results', text);
+    ui.showDailyNote(text);
+  };
+  const posted = platform.hosted
+    ? platform.myDisplayName().catch(() => null).then((name) => send(name || undefined))
+    : send();
+  posted.then((r) => (r.ok ? r.json() : null)).then((res) => {
     if (res && res.ok) ui.announce('results', `Daily leaderboard rank ${res.rank}.`);
-  }).catch(() => { /* offline: local best already saved */ });
+    else if (platform.hosted) fallback();
+  }).catch(() => { if (platform.hosted) fallback(); /* offline: local best already saved */ });
+  if (platform.hosted) showPlatformDailyBoard();
+}
+
+// Read-only platform board on the daily results screen (hosted only).
+async function showPlatformDailyBoard() {
+  try {
+    const info = await platform.gameInfo();
+    if (!info || !info.leaderboardId) {
+      ui.showDailyBoard({ source: 'none' });
+      return;
+    }
+    const entries = await platform.leaderboardEntries(info.leaderboardId, { pageSize: 5 });
+    const mine = entries.find((e) => e.userId === platform.getSub());
+    ui.showDailyBoard({ source: 'platform', entries, myRank: mine ? mine.rank : null });
+  } catch (_) { /* board unavailable: the local best line already shows */ }
 }
 
 // --- Main loop ------------------------------------------------------------------
@@ -324,27 +371,34 @@ function leaveToTitle() {
 
 // --- Server time + daily ------------------------------------------------------
 async function syncDaily() {
-  if (/^[0-9a-f-]{36}\.starhermit\.com$/i.test(location.hostname)) {
-    dailyInfo = null;
+  if (!platform.hosted) {
+    // Local dev: the game's own server (npm start) refines the clock and marks
+    // the board ranked; without it the device clock drives an unranked daily.
+    try {
+      const t0 = Date.now();
+      const r = await fetch('/api/v1/time');
+      const body = await r.json();
+      if (body && Number.isFinite(body.now)) {
+        clockOffset = body.now - Math.round((t0 + Date.now()) / 2);
+      }
+      const d = await (await fetch('/api/v1/daily')).json();
+      if (d && d.date && Number.isFinite(d.seed)) {
+        dailyInfo = {
+          date: d.date, seed: d.seed >>> 0,
+          contentVersion: Number.isFinite(d.contentVersion) ? d.contentVersion : CONTENT_VERSION,
+        };
+        ui.setDailyLine(`Daily challenge for ${dailyInfo.date} — seed ${dailyInfo.seed.toString(16)}. Ranked (validation server).`);
+        return;
+      }
+    } catch (_) { /* offline: device clock below */ }
+    dailyInfo = localDailyInfo();
     ui.setDailyLine('Daily challenge: local UTC day, unranked.');
     return;
   }
-  try {
-    const t0 = Date.now();
-    const r = await fetch('/api/v1/time');
-    const body = await r.json();
-    if (body && Number.isFinite(body.now)) {
-      clockOffset = body.now - Math.round((t0 + Date.now()) / 2);
-    }
-    const d = await (await fetch('/api/v1/daily')).json();
-    if (d && d.date && Number.isFinite(d.seed)) {
-      dailyInfo = d;
-      ui.setDailyLine(`Daily challenge for ${d.date} — seed ${d.seed.toString(16)}. Ranked.`);
-    }
-  } catch (_) {
-    dailyInfo = null;
-    ui.setDailyLine('Daily challenge: offline — using local UTC day, unranked.');
-  }
+  // Hosted: the platform serves no time/daily route; the device clock drives
+  // the UTC day and the run is ranked through the platform board.
+  dailyInfo = localDailyInfo();
+  ui.setDailyLine(`Daily challenge for ${dailyInfo.date} — seed ${dailyInfo.seed.toString(16)}. Ranked.`);
 }
 
 // --- Boot ----------------------------------------------------------------------
@@ -384,6 +438,26 @@ function boot() {
   });
   ui.refreshMetaScreens(save);
   applySettings();
+
+  // Platform integration (no-op in local mode): nickname + cloud mirror.
+  platform.cloudStart(() => save);
+  platform.onStatus((s) => { syncState = s; renderProfileLine(); });
+  if (platform.hosted) {
+    platform.myDisplayName().then((name) => { profileName = name; renderProfileLine(); });
+    platform.cloudLoad().then((remote) => {
+      if (remote) {
+        const decoded = decodeSave(JSON.stringify(remote));
+        if (decoded) {
+          save = decoded; // remote wins conflicts
+          persist();
+          applySettings();
+          ui.refreshMetaScreens(save);
+          return;
+        }
+      }
+      platform.cloudDirty(); // first launch: mirror the local doc up
+    }).catch(() => { /* cloud unreachable: local save keeps driving */ });
+  }
 
   const canvas = document.getElementById('game-canvas');
   gl = gfx.mount(canvas);

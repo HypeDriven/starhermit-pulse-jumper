@@ -163,7 +163,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror.
 - `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
 - `content`: versioned levels, themes, tutorials, validation metadata.
-- `platform`: token-aware REST/WebSocket adapter, retries, rate-limit handling, telemetry consent.
+- `platform`: token-aware REST adapter, retries, rate-limit handling (ships as `src/platform.js`; no telemetry).
 
 No module may mutate rules state except through a validated command. Rendering consumes immutable snapshots plus interpolation data. UI state and simulation state are separate so closing a drawer cannot affect a match.
 
@@ -186,26 +186,26 @@ No module may mutate rules state except through a validated command. Rendering c
 
 ### Packaging and launch
 - Ship a browser distribution with `starhermit.txt` at its root, `name=Pulse Jumper`, and `launch=index.html`. Keep source files, secrets, design documents, and source maps outside the uploaded distribution.
-- Read the game scope from the short-lived launch token rather than hard-coding a slug. Use same-origin `/api` and `/ws` routes when hosted. Refresh account tokens through the host shell; never persist access or launch tokens in local storage.
-- Synchronize countdowns and daily boundaries with `GET /api/v1/time` using round-trip-adjusted offset. Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
+- Read the game scope from the short-lived launch token rather than hard-coding a slug: read `#game_token=<jwt>` from the URL fragment once, then strip it (query-param fallbacks are local-dev only); decode `sub`/`game_scope` from the JWT payload. Use same-origin `/api` routes when hosted and send `Authorization: Bearer` on every call; re-mint the token every 45 min via `POST /api/v1/games/{slug}/launch-token`. Never persist access or launch tokens in local storage.
+- Daily boundaries are derived from the UTC day; in local dev the clock is refined with `GET /api/v1/time` using a round-trip-adjusted offset (the platform serves no time route; hosted mode uses the device clock). Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
 
 ### Identity, profile, presence, and preferences
-- Support guest practice locally, then offer account sign-in for durable progress. Use the profile display name and avatar only where identity is useful, honor profile privacy, and send throttled presence heartbeats while actively playing.
+- Hosted identity comes from the launch token: display the account nickname from `GET /api/v1/users/{id}/profile` (with a `Player ` + id prefix fallback) in the title-screen name slot; never call `/api/v1/me`, never display usernames. The platform exposes no per-game presence endpoints to launch tokens, so no presence heartbeats are sent.
 - Store accessibility, audio, graphics tier, tutorial completion, camera preference, and rules options through per-game settings. Declare desktop action bindings and read player overrides; touch mappings remain responsive UI controls.
-- Cloud-save progression as a versioned, checksummed document. Resolve conflicts by preserving both snapshots and asking the player when neither is a strict descendant. Never place credentials or private chat in saves.
+- Cloud-save progression as a versioned, checksummed document. Mirror it to the platform slot with `GET`/`PUT /api/v1/me/cloud-saves/{slug}` (zip+base64), remote-preferred on load with localStorage as the offline cache; debounce saves and flush on pagehide. Resolve conflicts by preserving both snapshots and asking the player when neither is a strict descendant. Never place credentials or private chat in saves.
 
 ### Discovery, activity, and social layer
-- Start and end launch activity so playtime is accurate. Surface entitlement or catalog state only in host-owned chrome; the game itself must remain playable without promotional interruption.
+- Start and end launch activity so playtime is accurate. The platform exposes no per-game activity endpoints to launch tokens, so the game sends no activity calls; surface entitlement or catalog state only in host-owned chrome; the game itself must remain playable without promotional interruption.
 - Provide a compact friends panel for score comparison and invitations where appropriate. Respect presence visibility and do not expose a hidden or private profile through game UI.
 - Do not create gameplay chat or voice surfaces for the initial release; they are not relevant to the core solo loop. Friends-only leaderboard filtering and shareable challenge seeds supply the social layer without unnecessary communication permissions.
 
 ### Achievements and leaderboards
 - Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent.
-- Provide global and friends-filtered boards for the primary metric plus a fair daily/weekly board. Include ruleset, content version, seed, assists, and duration with every submission; reject impossible or stale-version scores.
-- For globally competitive boards, validate score claims through a lightweight authoritative script using replayable input logs and deterministic seeds. If validation is unavailable, label the board casual and apply plausibility/rate checks.
+- Hosted boards are platform-owned and read-only: resolve `leaderboardId` via `GET /api/v1/games/{slug}` and render `GET /api/v1/leaderboards/{id}/entries` with nickname resolution; the client never submits scores. Replay-validated submission of the daily run (replayable input log, ruleset, content version, seed, duration) runs only against the game's own validation backend as an authenticated its-backend, with a graceful local fallback when it is absent. Include ruleset, content version, seed, assists, and duration with every submission; reject impossible or stale-version scores.
+- For globally competitive boards, validate score claims through a lightweight authoritative script using replayable input logs and deterministic seeds. If validation is unavailable (the platform board), label the board casual and apply plausibility/rate checks.
 
 ### Sessions and transport
-- The initial game is solo. Use an authoritative JavaScript Game Script only for seeded daily sessions, replay validation, and durable achievement delivery; ordinary practice can run locally and offline after initial load.
+- The initial game is solo. The shipped `server.js` is a plain Node server (local dev backend), not a platform game script: it serves replay validation for daily submissions and its own local leaderboard. Ordinary practice runs locally and offline; hosted daily results are read-only on the platform board, and achievements stay local as part of the cloud-saved document.
 - A daily session records content version, seed, settings affecting difficulty, an ordered input log, score components, and final checksum. Reconnect from the durable session snapshot rather than trusting cached client state.
 - Realtime rooms, peer relay, matchmaking, backfill, and voice are intentionally not used because they add no value to this ruleset.
 

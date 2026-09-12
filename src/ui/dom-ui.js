@@ -9,6 +9,8 @@ import { THEMES, journeyCount } from '../core/levels.js';
 const $ = (id) => document.getElementById(id);
 let H = {}; // handlers supplied by game.js
 let lastFocus = null;
+let profileName = null; // platform nickname (null in local mode)
+let profileStatus = null; // saving | synced | offline (cloud mirror)
 
 function el(tag, attrs = {}, text = '') {
   const n = document.createElement(tag);
@@ -95,7 +97,9 @@ function buildTitle(save) {
   const right = el('div', { class: 'rail right' });
   right.append(el('h3', {}, 'Today'));
   right.append(el('p', { id: 'title-daily-line' }, 'Daily challenge: one shared seed per UTC day.'));
+  right.append(el('p', { id: 'title-profile-line', class: 'profile-line', hidden: true }));
   s.append(right);
+  renderProfileLine();
 }
 
 function buildModes() {
@@ -317,4 +321,62 @@ export function applyAccessibility(settings) {
 export function setDailyLine(text) {
   const n = $('title-daily-line');
   if (n) n.textContent = text;
+}
+
+const SYNC_LABELS = {
+  saving: 'saving…',
+  synced: 'cloud save synced',
+  offline: 'offline — progress kept locally',
+};
+
+function renderProfileLine() {
+  const n = $('title-profile-line');
+  if (!n) return;
+  if (!profileName) { n.hidden = true; return; }
+  const status = SYNC_LABELS[profileStatus];
+  n.textContent = `Playing as ${profileName}` + (status ? ` · ${status}` : '');
+  n.hidden = false;
+}
+
+// Name + cloud-sync status slot (hosted only; hidden in local mode).
+export function setProfileLine(name, status) {
+  profileName = name;
+  profileStatus = status;
+  renderProfileLine();
+}
+
+// Read-only daily board on the results screen (hosted only). Safe to call
+// before the results screen exists — it no-ops unless results are visible.
+let dailyNote = null;
+export function showDailyBoard({ source, entries = [], myRank = null }) {
+  const s = $('screen-results');
+  if (!s || s.hidden) return;
+  const host = s.querySelector('.screen-core');
+  if (!host) return;
+  const old = $('daily-board');
+  if (old) old.remove();
+  const box = el('div', { id: 'daily-board', class: 'daily-board' });
+  if (source === 'platform') {
+    box.append(el('h3', {}, 'Daily board — platform'));
+    if (!entries.length) box.append(el('p', { class: 'subtitle' }, 'No entries yet today.'));
+    const list = el('ol', { class: 'board-list' });
+    for (const e of entries) list.append(el('li', {}, `${e.rank}. ${e.name} — ${e.score}`));
+    box.append(list);
+    if (myRank) box.append(el('p', { class: 'best-line' }, `Your platform rank: ${myRank}.`));
+  } else {
+    box.append(el('h3', {}, 'Daily board'));
+    box.append(el('p', { class: 'subtitle' },
+      'No platform leaderboard for this game yet — your best is saved to your account.'));
+  }
+  if (dailyNote) box.append(el('p', { class: 'subtitle', id: 'daily-board-note' }, dailyNote));
+  host.append(box);
+}
+
+// Graceful-fallback note under the daily board (e.g. validation backend down).
+export function showDailyNote(text) {
+  dailyNote = text;
+  if (!text) return;
+  const box = $('daily-board');
+  if (!box || $('daily-board-note')) return;
+  box.append(el('p', { class: 'subtitle', id: 'daily-board-note' }, text));
 }
