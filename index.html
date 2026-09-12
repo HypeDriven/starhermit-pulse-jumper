@@ -21,9 +21,10 @@
 
   /* --- screens --- */
   .screen { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:14px; padding:calc(20px + var(--safe-t)) calc(20px + var(--safe-r))
+    justify-content:safe center; gap:14px; padding:calc(20px + var(--safe-t)) calc(20px + var(--safe-r))
     calc(20px + var(--safe-b)) calc(20px + var(--safe-l)); text-align:center; background:var(--panel);
     z-index:10; overflow-y:auto; }
+  .screen > * { flex-shrink:0; } /* overflowing screens scroll from the first control */
   .screen[hidden] { display:none; }
   .title-main { font-size:clamp(32px,7vw,60px); font-weight:800; letter-spacing:.06em; margin:0;
     color:#fff; text-shadow:0 0 22px var(--accent), 0 0 46px #22d3ee55; }
@@ -61,8 +62,9 @@
     bottom:calc(10px + var(--safe-b)); display:none; justify-content:space-between;
     padding:0 16px; z-index:6; pointer-events:none; }
   body.playing.touch #touch-actions { display:flex; }
-  #touch-actions .btn { pointer-events:auto; width:min(34vw,180px); height:72px; font-size:18px;
-    border-radius:16px; opacity:.92; }
+  #touch-actions .btn { pointer-events:auto; width:min(34vw,180px); min-height:72px; height:auto; font-size:18px;
+    border-radius:16px; opacity:.92; line-height:1.15; padding:8px 6px; }
+  #touch-actions .btn small { display:block; font-size:11px; opacity:.8; white-space:nowrap; }
   body.left-handed #touch-actions { flex-direction:row-reverse; }
 
   /* --- results breakdown --- */
@@ -132,7 +134,8 @@
 
   @media (orientation:landscape) and (max-height:500px) {
     #hud { font-size:13px; }
-    #touch-actions .btn { height:56px; }
+    #touch-actions .btn { min-height:56px; font-size:16px; padding:6px; }
+    #touch-actions .btn small { font-size:10px; }
     .screen { gap:8px; }
   }
 </style>
@@ -155,8 +158,8 @@
   </div>
 
   <div id="touch-actions" aria-hidden="false">
-    <button type="button" class="btn secondary" id="touch-form">FORM<br><small>F / left tap</small></button>
-    <button type="button" class="btn" id="touch-jump">JUMP<br><small>Space / right tap</small></button>
+    <button type="button" class="btn secondary" id="touch-form" aria-label="Form (F or left tap)">FORM<br><small>left tap</small></button>
+    <button type="button" class="btn" id="touch-jump" aria-label="Jump (Space or right tap)">JUMP<br><small>right tap</small></button>
   </div>
 
   <!-- Screens are populated by src/ui/dom-ui.js -->

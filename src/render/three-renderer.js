@@ -318,8 +318,17 @@ export function render(state, prev, alpha, beatPhase) {
     sx = (Math.random() - 0.5) * shake; sy = (Math.random() - 0.5) * shake;
     shake *= 0.85;
   }
-  camera.position.set(px - CAM_BACK + sx, CAM_UP + sy, CAM_SIDE);
-  camera.lookAt(px + LOOK_AHEAD, LOOK_UP, 0);
+  // Narrow (portrait) frames: the authored side view would push the player
+  // off the left edge, so the camera slides forward less, sits farther out
+  // and looks less far ahead — player and next slabs stay inside the frame.
+  const aspect = camera.aspect || 1.6;
+  const k = Math.min(1, Math.max(0, (aspect - 0.55) / (1.3 - 0.55))); // 0 portrait → 1 wide
+  const back = CAM_BACK * (0.15 + 0.85 * k);
+  const side = CAM_SIDE * (2.4 - 1.4 * k);
+  const ahead = LOOK_AHEAD * (0.6 + 0.4 * k);
+  const up = CAM_UP * (1.3 - 0.3 * k);
+  camera.position.set(px - back + sx, up + sy, side);
+  camera.lookAt(px + ahead, LOOK_UP, 0);
 
   renderer.render(scene, camera);
 }
