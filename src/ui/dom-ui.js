@@ -5,6 +5,8 @@
 // focus; objective/score/results are announced through live regions.
 
 import { THEMES, journeyCount } from '../core/levels.js';
+import { PRESETS, CATEGORIES, DEFAULT_GRAPHICS, presetTier, choosePreset } from '../render/gfx.js';
+import { gfxStrings } from './gfx-i18n.js';
 
 const $ = (id) => document.getElementById(id);
 let H = {}; // handlers supplied by game.js
@@ -52,6 +54,11 @@ export function showScreen(name) {
     if (n) n.hidden = s !== name;
   }
   document.body.classList.toggle('playing', name === null);
+  clearInterval(gfxTimer);
+  if (name === 'screen-settings') {
+    buildGraphics();
+    gfxTimer = setInterval(refreshGraphicsSummary, 1000);
+  }
   if (name) {
     lastFocus = document.activeElement;
     const scr = $(name);
@@ -239,7 +246,6 @@ const SETTING_DEFS = [
   ['musicVolume', 'Music volume', 'range'],
   ['effectsVolume', 'Effects volume', 'range'],
   ['muted', 'Mute all audio', 'checkbox'],
-  ['graphicsTier', 'Graphics quality', 'select', ['high', 'medium', 'low']],
   ['reducedMotion', 'Reduced motion', 'checkbox'],
   ['highContrast', 'High contrast', 'checkbox'],
   ['largerText', 'Larger text', 'checkbox'],
@@ -272,8 +278,111 @@ function buildSettings(settings) {
     lab.append(input);
     grid.append(lab);
   }
-  s.append(grid, btn('Back', 'secondary', () => showScreen(H.onHelpBack())));
+  const gfxBox = el('div', { id: 'gfx-section', class: 'settings-grid gfx-section', role: 'group', ariaLabelledby: 'gfx-heading' });
+  const cols = el('div', { class: 'settings-cols' });
+  cols.append(grid, gfxBox);
+  s.append(cols, btn('Back', 'secondary', () => showScreen(H.onHelpBack())));
+  gfxSettings = settings;
+  buildGraphics();
 }
+
+// --- Graphics section ----------------------------------------------------------
+// Quality preset, render scale, one override per effect, adaptive resolution,
+// fps readout, GPU/cost summary. Changes apply live and persist with settings.
+let gfxSettings = null;
+let gfxTimer = null;
+
+function currentGraphics() {
+  return { ...DEFAULT_GRAPHICS, ...((gfxSettings && gfxSettings.graphics) || {}) };
+}
+
+function setGraphics(next) {
+  gfxSettings = { ...gfxSettings, graphics: next };
+  H.onSettingsChange({ graphics: next });
+  const focusId = document.activeElement && document.activeElement.id;
+  buildGraphics();
+  if (focusId && $(focusId)) $(focusId).focus();
+}
+
+function gfxRow(labelText, input, extra) {
+  const lab = el('label', {});
+  lab.append(el('span', {}, labelText));
+  if (extra) {
+    const wrap = el('span', { class: 'gfx-inline' });
+    wrap.append(input, extra);
+    lab.append(wrap);
+  } else lab.append(input);
+  return lab;
+}
+
+function buildGraphics() {
+  const box = $('gfx-section');
+  if (!box || !gfxSettings) return;
+  const t = gfxStrings();
+  const g = currentGraphics();
+  const info = H.graphicsInfo ? H.graphicsInfo((k) => t.sum[k]) : null;
+  const detected = info ? info.detected : 'balanced';
+  const active = info ? info.resolved.preset : (PRESETS.includes(g.preset) ? g.preset : detected);
+  box.innerHTML = '';
+  box.append(el('h3', { id: 'gfx-heading', class: 'gfx-heading' }, t.graphics));
+
+  const quality = el('select', { id: 'setting-graphicsTier' });
+  quality.dataset.gfx = 'preset';
+  quality.append(el('option', { value: 'auto', selected: !PRESETS.includes(g.preset) },
+    t.auto.replace('{tier}', t.tier[detected])));
+  for (const p of PRESETS) quality.append(el('option', { value: p, selected: g.preset === p }, t.tier[p]));
+  quality.addEventListener('change', () => setGraphics(choosePreset(currentGraphics(), quality.value)));
+  box.append(gfxRow(t.quality, quality));
+
+  const pct = Math.round(Math.min(2, Math.max(0.5, Number(g.render_scale) || 1)) * 100);
+  const scale = el('input', { id: 'gfx-scale', type: 'range', min: '50', max: '200', step: '5', value: String(pct) });
+  scale.dataset.gfx = 'render_scale';
+  const scaleVal = el('output', { id: 'gfx-scale-value', class: 'gfx-value' }, pct + '%');
+  scale.addEventListener('input', () => { scaleVal.textContent = scale.value + '%'; });
+  scale.addEventListener('change', () => setGraphics({ ...currentGraphics(), render_scale: Number(scale.value) / 100 }));
+  box.append(gfxRow(t.renderScale, scale, scaleVal));
+
+  for (const [cat, tiers] of Object.entries(CATEGORIES)) {
+    const sel = el('select', { id: 'gfx-' + cat });
+    sel.dataset.gfx = cat;
+    sel.append(el('option', { value: 'preset', selected: !tiers.includes(g[cat]) },
+      t.fromPreset.replace('{tier}', t.tier[presetTier(active, cat)])));
+    for (const tier of tiers) sel.append(el('option', { value: tier, selected: g[cat] === tier }, t.tier[tier]));
+    sel.addEventListener('change', () => {
+      const next = { ...currentGraphics() };
+      if (sel.value === 'preset') delete next[cat]; else next[cat] = sel.value;
+      setGraphics(next);
+    });
+    box.append(gfxRow(t.cat[cat], sel));
+  }
+
+  const adaptive = el('input', { id: 'gfx-adaptive', type: 'checkbox', checked: g.adaptive !== false });
+  adaptive.addEventListener('change', () => setGraphics({ ...currentGraphics(), adaptive: adaptive.checked }));
+  box.append(gfxRow(t.adaptive, adaptive));
+  const fpsBox = el('input', { id: 'gfx-show-fps', type: 'checkbox', checked: !!g.show_fps });
+  fpsBox.addEventListener('change', () => setGraphics({ ...currentGraphics(), show_fps: fpsBox.checked }));
+  box.append(gfxRow(t.showFps, fpsBox));
+
+  box.append(el('p', { id: 'gfx-summary', class: 'gfx-summary' }));
+  const note = el('p', { id: 'gfx-post-note', class: 'gfx-summary', role: 'status', hidden: true }, t.postFailed);
+  box.append(note);
+  refreshGraphicsSummary();
+}
+
+export function refreshGraphicsSummary() {
+  const n = $('gfx-summary');
+  if (!n || !H.graphicsInfo) return;
+  const t = gfxStrings();
+  const info = H.graphicsInfo((k) => t.sum[k]);
+  if (!info) { n.textContent = ''; return; }
+  n.textContent = `${info.gpu || t.unknownGpu} · ${info.summary}`;
+  n.dataset.preset = info.resolved.preset;
+  const note = $('gfx-post-note');
+  if (note) note.hidden = !info.postFailed;
+}
+
+/** Rebuild the Graphics section (e.g. once the renderer knows the GPU). */
+export function refreshGraphicsPanel() { buildGraphics(); }
 
 // --- Public API ---------------------------------------------------------------
 

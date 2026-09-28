@@ -121,6 +121,12 @@ The subject is the active playfield at near-tabletop to room scale, framed so st
 - Event hierarchy: input acknowledgment < legal move < combo/goal < round completion. Reserve camera motion, strong emission, and dense particles for the highest tier.
 - Audio uses original short transients tied to logical events, layered material impacts, quiet ambience, and adaptive music stems. Randomized pitch/variant is seeded for replay consistency where recording matters.
 
+### Graphics
+
+Lighting combines ACES filmic tone mapping with sRGB output, a hemisphere fill tinted by the level theme, a low ambient term, a key directional light and the runner's own point light. Image-based lighting comes from a PMREM-filtered RoomEnvironment (the dark floor takes a much weaker copy so it never greys out). The sky is a shader dome: theme gradient, horizon glow, procedural twinkling stars and, at Detailed, a striped synth sun low over the course. Pieces are physical materials: the runner and gems are clearcoated and emissive, slabs are clearcoated amber with neon edge lines and a pale cap, gates are translucent violet with a spinning swirl ring. Detailed also adds glowing lane edges, a roughness-textured floor, a distant skyline of fogged towers with lit rooflines, a halo around the runner and a glow column on the finish beacon. Optional effects: sun shadows (PCF, a shadow box fitted around the runner and snapped to texels), GTAO contact darkening (sky and additive glows excluded), bloom limited to emissive neon and highlights (threshold 0.86), a colour grade with vignette, FXAA/SMAA/MSAA anti-aliasing, additive beat particles and a motion trail behind the runner. Gems bob and spin, particles drift and stars twinkle; all of it stops under reduced motion. The title screen shows the live course behind a translucent, centre-darkened panel (the runner drifts above the slabs); other menus render nothing behind them.
+
+The Settings screen has a **Graphics** section (all its strings follow the browser language: en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT). It offers a quality preset (Auto, chosen from the detected GPU, where software renderers get Low, discrete GPUs and Apple M get High, everything else Balanced, and touch devices at most Balanced; Low; Balanced; High; Ultra), a render scale (50–200% of the preset's), a per-effect override for shadows, ambient occlusion, bloom, colour grade, anti-aliasing, reflections, particles, background (static/animated) and detail (plain/detailed), each "From preset (…)" by default, plus adaptive resolution (steps the resolution down to 60% when frames average over 26 ms and back up under 14 ms) and a frame-rate readout (bottom-left, never over HUD controls), and a summary line with the GPU name, cost and pixel size. Choosing a preset clears overrides. Changes apply immediately and are saved in the local save under `settings.graphics`; older saves carry an explicit low/medium tier over. Low renders without a post chain, shadows or particles at device pixel ratio 1 (Balanced caps at 1.5, High/Ultra at 2). If post-processing cannot be built, the game renders without it and the panel says so.
+
 ### Camera and motion
 
 - Choose orthographic or low-distortion perspective according to depth requirements; expose framing constants rather than magic offsets.
@@ -159,8 +165,8 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - `bootstrap`: host handshake, capability detection, asset manifest, lifecycle.
 - `rules`: pure deterministic state transitions, legality, scoring, seeded random stream.
 - `session`: local or hosted commands, snapshots, prediction policy, reconnect, replay.
-- `render`: Three.js scene graph, semantic entity views, camera, lighting, VFX, quality.
-- `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror.
+- `render`: Three.js scene graph, semantic entity views, camera, lighting, VFX, quality (`src/render/three-renderer.js`; pure quality model `src/render/gfx.js`; same-revision three.js addons for post-processing and RoomEnvironment in `src/render/vendor/addons/`).
+- `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror (`src/ui/dom-ui.js`; Graphics panel strings in `src/ui/gfx-i18n.js`).
 - `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
 - `content`: versioned levels, themes, tutorials, validation metadata.
 - `platform`: token-aware REST adapter, retries, rate-limit handling (ships as `src/platform.js`; no telemetry).

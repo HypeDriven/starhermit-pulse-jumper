@@ -401,6 +401,101 @@ async function runMobile(browser) {
   console.log(`ok - ${name}: no page errors`);
 }
 
+// ---------- graphics settings pass (desktop + mobile) ----------
+// Through the visible Settings → Graphics section: Auto resolves to Low on the
+// software GPU, switching presets (Low → Ultra → High) applies live, a
+// per-effect override sticks, and everything survives a reload. Zero console
+// errors or warnings in any preset.
+async function runGraphics(browser, name, ctxOpts) {
+  const errors = [];
+  const context = await browser.newContext(ctxOpts);
+  const page = await context.newPage();
+  const touch = !!ctxOpts.hasTouch;
+  const press = (sel) => (touch ? page.tap(sel) : page.click(sel));
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
+    const url = m.location()?.url || '';
+    if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon|\/sfx\//.test(url)) return;
+    errors.push(`console ${m.type()}: ${m.text()}`);
+  });
+  const preset = () => page.evaluate(() => document.body.dataset.gfxPreset);
+  const openGraphics = async () => {
+    await press('#screen-title button:has-text("Settings")');
+    await page.waitForSelector('#screen-settings', { state: 'visible' });
+    await page.locator('#gfx-section').scrollIntoViewIfNeeded();
+    await page.waitForSelector('#gfx-section', { state: 'visible' });
+  };
+  try {
+    await page.goto(BASE, { waitUntil: 'load' });
+    await page.waitForSelector('#play-btn', { state: 'visible', timeout: 15000 });
+    await openGraphics();
+    const autoLabel = await page.locator('#setting-graphicsTier option[value="auto"]').textContent();
+    if (!/Low/.test(autoLabel) || (await preset()) !== 'low') {
+      throw new Error(`Auto should resolve to Low on the software GPU: "${autoLabel}" / ${await preset()}`);
+    }
+    // Panel fits the viewport horizontally and every control is in it.
+    const vw = page.viewportSize().width;
+    const box = await page.locator('#gfx-section').boundingBox();
+    if (!box || box.x < 0 || box.x + box.width > vw + 1) throw new Error('graphics panel cut off: ' + JSON.stringify(box));
+    for (const id of ['#setting-graphicsTier', '#gfx-scale', '#gfx-shadows', '#gfx-bloom', '#gfx-adaptive', '#gfx-show-fps', '#gfx-summary']) {
+      const b = await page.locator(id).boundingBox();
+      if (!b || b.x < 0 || b.x + b.width > vw + 1) throw new Error(`${id} cut off: ${JSON.stringify(b)}`);
+    }
+    ok(`${name}: Graphics section visible, Auto = Low (software GPU), panel fits ${vw}px`);
+
+    await page.selectOption('#setting-graphicsTier', 'low');
+    if ((await preset()) !== 'low') throw new Error('Low not applied');
+    await page.selectOption('#setting-graphicsTier', 'ultra');
+    await page.waitForFunction(() => document.body.dataset.gfxPreset === 'ultra');
+    // Render Ultra frames behind the title (live backdrop), then come back.
+    await press('#screen-settings button:has-text("Back")');
+    await page.waitForSelector('#screen-title', { state: 'visible' });
+    await page.waitForTimeout(1500);
+    const dbg = await page.evaluate(() => window.__pulseDebug.gfxDebug());
+    if (!dbg.post || !dbg.shadows || dbg.postFailed) throw new Error('Ultra post chain/shadows not active: ' + JSON.stringify(dbg));
+    await page.screenshot({ path: SHOT('gfx-ultra-title', name) });
+    ok(`${name}: Ultra applied live (post chain + shadows rendering)`);
+
+    await openGraphics();
+    await page.selectOption('#setting-graphicsTier', 'high');
+    await page.waitForFunction(() => document.body.dataset.gfxPreset === 'high');
+    await page.selectOption('#gfx-bloom', 'off');
+    await page.locator('#gfx-show-fps').check();
+    const summary = await page.textContent('#gfx-summary');
+    if (/bloom/.test(summary) || !/2048² shadows/.test(summary) || !/\d+×\d+ px/.test(summary)) {
+      throw new Error('summary does not reflect High with bloom off: ' + summary);
+    }
+    await page.waitForSelector('#fps-meter', { state: 'attached' });
+    await page.screenshot({ path: SHOT('gfx-panel', name) });
+    ok(`${name}: High + bloom override applied (summary: ${summary.split(' · ').slice(-3).join(' · ')})`);
+
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('#play-btn', { state: 'visible', timeout: 15000 });
+    await openGraphics();
+    const persisted = await page.evaluate(() => ({
+      preset: document.body.dataset.gfxPreset,
+      quality: document.getElementById('setting-graphicsTier').value,
+      bloom: document.getElementById('gfx-bloom').value,
+      fps: document.getElementById('gfx-show-fps').checked,
+    }));
+    if (persisted.preset !== 'high' || persisted.quality !== 'high' || persisted.bloom !== 'off' || !persisted.fps) {
+      throw new Error('graphics settings not persisted: ' + JSON.stringify(persisted));
+    }
+    // Choosing a preset clears the override.
+    await page.selectOption('#setting-graphicsTier', 'low');
+    const cleared = await page.evaluate(() => document.getElementById('gfx-bloom').value);
+    if (cleared !== 'preset') throw new Error('preset did not clear the bloom override: ' + cleared);
+    await press('#screen-settings button:has-text("Back")');
+    await page.waitForTimeout(500);
+    ok(`${name}: graphics settings survive reload; choosing a preset clears overrides`);
+  } finally {
+    await context.close();
+  }
+  if (errors.length) throw new Error(`${name} graphics pass had console output:\n  ${errors.join('\n  ')}`);
+  console.log(`ok - ${name}: graphics pass, no console errors or warnings`);
+}
+
 // ---------- main ----------
 let browser = null;
 try {
@@ -411,6 +506,8 @@ try {
   console.log(`serving ${ROOT} at ${BASE}`);
   await runPass(browser, 'desktop', { viewport: { width: 1280, height: 800 } }, { full: true });
   await runMobile(browser);
+  await runGraphics(browser, 'gfx-desktop', { viewport: { width: 1280, height: 800 } });
+  await runGraphics(browser, 'gfx-mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   console.log('\nE2E PASS — pulse-jumper, desktop + mobile, no page errors');
 } catch (e) {
   failures++;

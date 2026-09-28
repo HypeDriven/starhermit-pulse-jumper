@@ -13,7 +13,10 @@ export function defaultSave() {
     version: SAVE_VERSION,
     settings: {
       musicVolume: 0.6, effectsVolume: 0.8, muted: false,
-      graphicsTier: 'high', // 'high' | 'medium' | 'low'
+      graphicsTier: 'high', // legacy tier; superseded by `graphics` (kept for old saves)
+      // Graphics model (src/render/gfx.js): preset auto|low|balanced|high|ultra,
+      // render scale, adaptive resolution, fps readout, per-effect overrides.
+      graphics: { preset: 'auto', render_scale: 1, adaptive: true, show_fps: false },
       reducedMotion: false, highContrast: false, largerText: false,
       leftHanded: false, timingAssist: false,
     },
@@ -48,6 +51,11 @@ export function migrate(payload) {
     tutorialDone: { ...(payload.tutorialDone || {}) },
     achievements: { ...(payload.achievements || {}) },
   };
+  // Saves from before the graphics model: carry an explicit low/medium choice over.
+  if (!payload.settings || typeof payload.settings.graphics !== 'object' || !payload.settings.graphics) {
+    const legacy = { low: 'low', medium: 'balanced' }[out.settings.graphicsTier];
+    out.settings.graphics = { ...base.settings.graphics, ...(legacy ? { preset: legacy } : {}) };
+  }
   out.version = SAVE_VERSION;
   if (!(out.journeyUnlocked >= 1)) out.journeyUnlocked = 1;
   delete out.checksum;

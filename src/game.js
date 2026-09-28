@@ -61,7 +61,7 @@ function applySettings() {
   ui.applyAccessibility(save.settings);
   audio.configure(save.settings);
   if (gl) {
-    gfx.setQuality(save.settings.graphicsTier);
+    gfx.setGraphics(save.settings.graphics);
     gfx.setReducedMotion(save.settings.reducedMotion);
     gfx.setTimingAssist(save.settings.timingAssist);
   }
@@ -308,6 +308,8 @@ function frame(now) {
     const alpha = machine === 'active' ? accumulator / STEP_SECONDS : 1;
     const beatPhase = (now / 1000 / audio.beatPeriod()) % 1;
     gfx.render(state, prevState, alpha, beatPhase);
+  } else if (gl && !document.getElementById('screen-title').hidden) {
+    gfx.renderIdle((now / 1000 / audio.beatPeriod()) % 1); // live backdrop behind the title
   }
 
   if (machine === 'active' && state) {
@@ -435,6 +437,7 @@ function boot() {
       save.settings = { ...save.settings, ...patch };
       persist(); applySettings();
     },
+    graphicsInfo: (t) => (gl ? gfx.graphicsInfo(t) : null),
   });
   ui.refreshMetaScreens(save);
   applySettings();
@@ -462,10 +465,11 @@ function boot() {
   const canvas = document.getElementById('game-canvas');
   gl = gfx.mount(canvas);
   if (!gl) { ui.showScreen('webgl-error'); return; }
-  gfx.setQuality(save.settings.graphicsTier);
+  gfx.setGraphics(save.settings.graphics);
   gfx.setReducedMotion(save.settings.reducedMotion);
   gfx.setTimingAssist(save.settings.timingAssist);
   gfx.loadLevel(journeyLevel(1)); // ambient backdrop behind menus
+  ui.refreshGraphicsPanel(); // the renderer now knows the GPU and the Auto choice
 
   canvas.addEventListener('pointerdown', onCanvasPointer);
   document.getElementById('touch-jump').addEventListener('pointerdown', (e) => {

@@ -26,6 +26,8 @@
     z-index:10; overflow-y:auto; }
   .screen > * { flex-shrink:0; } /* overflowing screens scroll from the first control */
   .screen[hidden] { display:none; }
+  /* the title lets the live neon course show through, darker behind the text */
+  #screen-title { background:radial-gradient(ellipse at 50% 50%, #060913e6 0%, #060913b8 55%, #0609137a 100%); }
   .title-main { font-size:clamp(32px,7vw,60px); font-weight:800; letter-spacing:.06em; margin:0;
     color:#fff; text-shadow:0 0 22px var(--accent), 0 0 46px #22d3ee55; }
   .subtitle { font-size:clamp(14px,2.2vw,18px); opacity:.85; max-width:70ch; line-height:1.5; margin:0; }
@@ -83,7 +85,7 @@
 
   /* --- rails (wide desktop) --- */
   @media (min-width:1024px) {
-    .screen { flex-direction:row; flex-wrap:wrap; align-content:center; }
+    .screen { flex-direction:row; flex-wrap:wrap; align-content:safe center; }
     .rail { flex:0 0 220px; max-width:220px; text-align:left; font-size:15px; }
     .rail.left { order:-1; margin-right:auto; }
     .rail.right { margin-left:auto; }
@@ -118,6 +120,20 @@
   .settings-grid select { background:var(--panel2); color:var(--text); border:1px solid #3b5383;
     border-radius:6px; padding:8px; font-size:15px; min-height:44px; }
   .settings-grid input[type=checkbox] { width:24px; height:24px; }
+  .settings-grid select { max-width:58%; }
+  .settings-cols { display:flex; flex-wrap:wrap; gap:18px 48px; justify-content:center; align-items:flex-start; }
+  #screen-settings .screen-core { max-width:min(100%,940px); }
+  .gfx-section { padding-top:4px; }
+  .gfx-heading { margin:0; font-size:18px; color:var(--accent); letter-spacing:.06em; }
+  .gfx-inline { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .gfx-inline input[type=range] { width:min(150px,34vw); }
+  .gfx-value { min-width:4.2ch; text-align:right; font-variant-numeric:tabular-nums; }
+  .gfx-summary { margin:0; font-size:13px; opacity:.8; line-height:1.4; overflow-wrap:anywhere; }
+  #fps-meter { position:absolute; left:calc(8px + var(--safe-l)); bottom:calc(8px + var(--safe-b)); z-index:30;
+    pointer-events:none; font:12px/1.2 ui-monospace,monospace; color:#b6f3ff; background:#060913b0;
+    padding:3px 6px; border-radius:4px; }
+  body.playing.touch #fps-meter { bottom:auto; top:calc(78px + var(--safe-t)); }
+  #fps-meter[hidden] { display:none; }
 
   .live { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);
     clip-path:inset(50%); white-space:nowrap; }
@@ -128,6 +144,7 @@
   body.high-contrast { --bg:#000; --panel:#000f; --panel2:#111; --text:#fff; --accent:#00ffff;
     --accent2:#ff7ad9; --gold:#ffff00; }
   body.high-contrast .btn.secondary { border-color:#888; }
+  body.high-contrast #screen-title { background:var(--panel); }
   body.larger-text { font-size:120%; }
   body.larger-text .btn { font-size:clamp(18px,3vw,23px); }
   body.reduced-motion * { transition:none !important; animation:none !important; }
@@ -140,7 +157,10 @@
   }
 </style>
 <script type="importmap">
-  { "imports": { "three": "/src/render/vendor/three.module.min.js" } }
+  { "imports": {
+    "three": "/src/render/vendor/three.module.min.js",
+    "three/addons/": "/src/render/vendor/addons/"
+  } }
 </script>
 </head>
 <body>
