@@ -23,11 +23,10 @@
  * window API is used to move the player.
  *
  * Serving: the repo ships server.js (the StarHermit authoritative script
- * declared by starhermit.txt). The game is fully playable offline — when
- * /api/v1/time|daily are unavailable it sets dailyInfo=null and shows an
- * unranked local-daily line. So this test embeds a minimal node:http static
- * server on an ephemeral port and answers /api/* probes with 200 `{}`,
- * mirroring the arrow-exodus/picture-logic/balance-spire sibling suites.
+ * declared by starhermit.txt). Standalone the game makes no own-server
+ * request (device-clock daily, local best), so this test embeds a minimal
+ * node:http static server on an ephemeral port and asserts that it never
+ * sees an /api or /ws request.
  *
  * Run: npm run test:e2e  (or: node tests/e2e.mjs)
  */
@@ -65,17 +64,13 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+const ownServerCalls = [];
 const server = http.createServer(async (req, res) => {
   try {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (p === '/') p = '/index.html';
-    // No StarHermit backend in the test: answer platform API probes with empty
-    // JSON (200) so the offline path is exercised silently, like the siblings.
-    if (p.startsWith('/api/')) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{}');
-      return;
-    }
+    // Standalone the game must never call its own server.
+    if (/^\/(api|ws)(\/|$)/.test(p)) ownServerCalls.push(p);
     const file = path.normalize(path.join(ROOT, p));
     if (!file.startsWith(ROOT)) { res.writeHead(403).end('forbidden'); return; }
     const data = await readFile(file);
@@ -185,12 +180,12 @@ async function runPass(browser, name, ctxOpts, { full }) {
   page.on('console', (m) => {
     if (m.type() !== 'error' || browserNoise.test(m.text())) return;
     const url = m.location()?.url || '';
-    if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon|\/sfx\//.test(url)) return;
+    if (/Failed to load resource/.test(m.text()) && /\/favicon|\/sfx\//.test(url)) return;
     errors.push(`console: ${m.text()}`);
   });
   page.on('response', (r) => {
     const p = r.url();
-    if (r.status() >= 400 && !/\/api\/|\/favicon|\/sfx\//.test(p)) errors.push(`http ${r.status()}: ${p}`);
+    if (r.status() >= 400 && !/\/favicon|\/sfx\//.test(p)) errors.push(`http ${r.status()}: ${p}`);
   });
 
   const screenshot = (stage) => page.screenshot({ path: SHOT(stage, name) });
@@ -326,7 +321,7 @@ async function runMobile(browser) {
   page.on('console', (m) => {
     if (m.type() !== 'error' || browserNoise.test(m.text())) return;
     const url = m.location()?.url || '';
-    if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon|\/sfx\//.test(url)) return;
+    if (/Failed to load resource/.test(m.text()) && /\/favicon|\/sfx\//.test(url)) return;
     errors.push(`console: ${m.text()}`);
   });
   const screenshot = (stage) => page.screenshot({ path: SHOT(stage, name) });
@@ -416,7 +411,7 @@ async function runGraphics(browser, name, ctxOpts) {
   page.on('console', (m) => {
     if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
     const url = m.location()?.url || '';
-    if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon|\/sfx\//.test(url)) return;
+    if (/Failed to load resource/.test(m.text()) && /\/favicon|\/sfx\//.test(url)) return;
     errors.push(`console ${m.type()}: ${m.text()}`);
   });
   const preset = () => page.evaluate(() => document.body.dataset.gfxPreset);
@@ -508,6 +503,8 @@ try {
   await runMobile(browser);
   await runGraphics(browser, 'gfx-desktop', { viewport: { width: 1280, height: 800 } });
   await runGraphics(browser, 'gfx-mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  if (ownServerCalls.length) throw new Error('standalone made own-server requests: ' + ownServerCalls.join(', '));
+  console.log('ok - standalone load made zero same-origin /api or /ws requests');
   console.log('\nE2E PASS — pulse-jumper, desktop + mobile, no page errors');
 } catch (e) {
   failures++;

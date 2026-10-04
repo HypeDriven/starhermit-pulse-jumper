@@ -90,8 +90,11 @@ function buildTitle(save) {
     btn('Journey', 'secondary', () => H.onMode('journey')),
     btn('Learn', 'secondary', () => H.onMode('learn')),
     btn('Help', 'secondary', () => H.onShowOverlay('screen-help')),
-    btn('Settings', 'secondary', () => H.onShowOverlay('screen-settings')));
+    btn('Settings', 'secondary', () => H.onShowOverlay('screen-settings')),
+    btn('Invite a friend', 'secondary', () => H.onInvite(), 'invite-btn'),
+    btn('Sign in with StarHermit', 'secondary', () => H.onSignIn(), 'signin-btn'));
   core.append(row);
+  core.append(el('p', { id: 'title-account-note', class: 'profile-line', role: 'status', hidden: true }));
   s.append(core);
 
   const left = el('div', { class: 'rail left' });
@@ -107,6 +110,32 @@ function buildTitle(save) {
   right.append(el('p', { id: 'title-profile-line', class: 'profile-line', hidden: true }));
   s.append(right);
   renderProfileLine();
+  renderAccount();
+}
+
+// StarHermit account buttons: sign-in only on the hosted domain without a
+// token, invite only when signed in.
+let account = { signIn: false, invite: false, labels: null };
+function renderAccount() {
+  const si = $('signin-btn');
+  const inv = $('invite-btn');
+  if (!si || !inv) return;
+  si.hidden = !account.signIn;
+  inv.hidden = !account.invite;
+  if (account.labels) {
+    si.textContent = account.labels.signIn;
+    inv.textContent = account.labels.invite;
+  }
+}
+export function setAccount(a) {
+  account = { ...account, ...a };
+  renderAccount();
+}
+export function showAccountNote(text) {
+  const n = $('title-account-note');
+  if (!n) return;
+  n.textContent = text;
+  n.hidden = false;
 }
 
 function buildModes() {
@@ -220,18 +249,40 @@ export function showResults({ headline, score, best, extraLines = [], canNext, o
   announce('results', `${headline}. Total score ${score.total}.`);
 }
 
-const HELP_CARDS = [
-  ['Jump', 'Press <kbd>Space</kbd>, <kbd>W</kbd>, <kbd>↑</kbd> or tap the right side to jump. Jumping clears the low amber slabs.'],
-  ['Form change', 'Press <kbd>F</kbd>, <kbd>S</kbd>, <kbd>↓</kbd> or tap the left side to switch between PULSE (cyan sphere) and NOVA (magenta, wide halo). Tall violet gates can only be phased through as NOVA.'],
-  ['Scoring', 'Checkpoints +50, gems +25, finishing +500. Each failed attempt on a stage costs 10 points (max 100).'],
-  ['Pause', 'Press <kbd>Esc</kbd> or <kbd>P</kbd>, or the II button. The game pauses automatically when the tab is hidden.'],
-];
+// Effective keyboard bindings ({ action: KeyboardEvent.code[] }) for Help.
+let bindings = {
+  jump: ['Space', 'ArrowUp', 'KeyW'], form: ['KeyF', 'ArrowDown', 'KeyS'], pause: ['Escape', 'KeyP'],
+};
+function keyLabel(code) {
+  const named = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Escape: 'Esc', Space: 'Space' };
+  if (named[code]) return named[code];
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  return String(code).replace(/[^\w ]/g, '');
+}
+function kbds(action) {
+  const list = (bindings[action] || []).map((c) => `<kbd>${keyLabel(c)}</kbd>`);
+  return list.length > 1 ? `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}` : (list[0] || '');
+}
+export function setBindings(b) {
+  bindings = b;
+  buildHelp();
+}
+
+function helpCards() {
+  return [
+    ['Jump', `Press ${kbds('jump')}, or tap the right side to jump. Jumping clears the low amber slabs.`],
+    ['Form change', `Press ${kbds('form')}, or tap the left side to switch between PULSE (cyan sphere) and NOVA (magenta, wide halo). Tall violet gates can only be phased through as NOVA.`],
+    ['Scoring', 'Checkpoints +50, gems +25, finishing +500. Each failed attempt on a stage costs 10 points (max 100).'],
+    ['Pause', `Press ${kbds('pause')}, or the II button. The game pauses automatically when the tab is hidden.`],
+  ];
+}
 
 function buildHelp() {
   const s = core('screen-help');
   s.append(el('h2', { class: 'screen-title', id: 'help-heading' }, 'How to play'));
   const cards = el('div', { class: 'cards' });
-  for (const [title, html] of HELP_CARDS) {
+  for (const [title, html] of helpCards()) {
     const c = el('div', { class: 'card' });
     c.append(el('h3', {}, title));
     const p = el('p', {});

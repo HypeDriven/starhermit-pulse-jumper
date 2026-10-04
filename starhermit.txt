@@ -4,3 +4,6 @@ launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=server.js
 cover=cover.jpg
+control.jump=Space+ArrowUp+KeyW | Jump
+control.form=KeyF+ArrowDown+KeyS | Change form
+control.pause=Escape+KeyP | Pause / resume

@@ -1,16 +1,16 @@
 'use strict';
 
 // Game orchestrator: state machine, fixed-step simulation loop with
-// interpolation, input routing, persistence, audio, and server integration.
+// interpolation, input routing, persistence, audio, and platform integration.
 
 import { STEP_SECONDS, FORM_NOVA, CONTENT_VERSION } from './core/constants.js';
 import { createRun, applyCommand, scoreOf, hashState } from './core/rules.js';
 import {
   journeyLevel, dailyLevel, practiceLevel, challengeLevel, tutorialLevel, dailySeedFor,
 } from './core/levels.js';
-import { buildEnvelope } from './core/session.js';
 import { loadSave, storeSave, decodeSave } from './core/save.js';
 import * as platform from './platform.js';
+import { currentPlatformStrings } from './platform-i18n.js';
 import * as audio from './audio/audio.js?v=production-qa-1';
 import * as gfx from './render/three-renderer.js';
 import * as ui from './ui/dom-ui.js';
@@ -35,18 +35,17 @@ let lastFrame = 0;
 let countdownLeft = 0;
 let pausedFrom = null; // machine state to restore when unpausing
 let dailyInfo = null; // { date, seed, contentVersion }
-let clockOffset = 0;  // serverNow - clientNow
 
 // --- Helpers ----------------------------------------------------------------
 let profileName = null; // platform nickname (hosted only)
 let syncState = null;   // saving | synced | offline (cloud mirror)
-function renderProfileLine() { ui.setProfileLine(platform.hosted ? profileName : null, syncState); }
+function renderProfileLine() { ui.setProfileLine(platform.isHosted() ? profileName : null, syncState); }
 
 function utcDay(ms) { return new Date(ms).toISOString().slice(0, 10); }
-function today() { return utcDay(Date.now() + clockOffset); }
+function today() { return utcDay(Date.now()); }
 
-// The daily seed is derived client-side from the UTC day (core/levels.js);
-// server calls only refine the clock and mark the board ranked.
+// The daily seed is derived client-side from the device clock's UTC day
+// (core/levels.js); no server call is involved.
 function localDailyInfo() {
   const date = today();
   return { date, seed: dailySeedFor(date) >>> 0, contentVersion: CONTENT_VERSION };
@@ -232,51 +231,41 @@ function finishRun() {
 
 function submitDailyScore() {
   if (!dailyInfo) return;
-  // The server re-simulates with attempts = 0, so the claim must be the
-  // unpenalised total; the local best keeps the penalised score.
-  const envelope = buildEnvelope(level, commands, 0);
-  const claim = {
-    seed: dailyInfo.seed, date: dailyInfo.date,
-    contentVersion: dailyInfo.contentVersion,
-    commands: envelope.commands, scoreClaim: envelope.result.score.total,
-  };
-  const send = (name) => fetch('/api/v1/scores', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(platform.hosted ? { authorization: 'Bearer ' + platform.getToken() } : {}),
-    },
-    body: JSON.stringify(name ? { ...claim, name } : claim),
-  });
-  // Hosted: the game's own validation backend authenticates the launch token
-  // (its-backend); on the platform host it is absent — fall back gracefully.
-  const fallback = () => {
-    const text = 'Daily validation server unavailable — your best is saved to your account.';
+  // Clients never submit scores (platform boards are written by the server
+  // only). Hosted: the best is kept in the cloud-saved doc and the read-only
+  // platform board is shown. Standalone: the best stays on this device.
+  if (platform.isHosted()) {
+    const text = 'Your best is saved to your account.';
     ui.announce('results', text);
     ui.showDailyNote(text);
-  };
-  const posted = platform.hosted
-    ? platform.myDisplayName().catch(() => null).then((name) => send(name || undefined))
-    : send();
-  posted.then((r) => (r.ok ? r.json() : null)).then((res) => {
-    if (res && res.ok) ui.announce('results', `Daily leaderboard rank ${res.rank}.`);
-    else if (platform.hosted) fallback();
-  }).catch(() => { if (platform.hosted) fallback(); /* offline: local best already saved */ });
-  if (platform.hosted) showPlatformDailyBoard();
+    showPlatformDailyBoard();
+  }
 }
 
 // Read-only platform board on the daily results screen (hosted only).
 async function showPlatformDailyBoard() {
   try {
-    const info = await platform.gameInfo();
-    if (!info || !info.leaderboardId) {
+    const entries = await platform.boardEntries({ pageSize: 5 });
+    if (!entries) {
       ui.showDailyBoard({ source: 'none' });
       return;
     }
-    const entries = await platform.leaderboardEntries(info.leaderboardId, { pageSize: 5 });
     const mine = entries.find((e) => e.userId === platform.getSub());
     ui.showDailyBoard({ source: 'platform', entries, myRank: mine ? mine.rank : null });
   } catch (_) { /* board unavailable: the local best line already shows */ }
+}
+
+// StarHermit invite link -> clipboard, confirmed on the title.
+async function inviteFriend() {
+  const pt = currentPlatformStrings();
+  const link = platform.inviteLink();
+  if (!link) return;
+  try {
+    await navigator.clipboard.writeText(link);
+    ui.showAccountNote(pt.inviteCopied);
+  } catch (_) {
+    ui.showAccountNote(pt.inviteFailed.replace('{link}', link));
+  }
 }
 
 // --- Main loop ------------------------------------------------------------------
@@ -318,10 +307,23 @@ function frame(now) {
 }
 
 // --- Input -------------------------------------------------------------------
+// Keyboard bindings (KeyboardEvent.code), declared as control.* in
+// starhermit.txt; the player's StarHermit overrides replace these when signed in.
+const DEFAULT_BINDINGS = {
+  jump: ['Space', 'ArrowUp', 'KeyW'],
+  form: ['KeyF', 'ArrowDown', 'KeyS'],
+  pause: ['Escape', 'KeyP'],
+};
+let bindings = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+function actionFor(code) {
+  for (const [a, codes] of Object.entries(bindings)) if (codes.includes(code)) return a;
+  return null;
+}
+
 function onKeyDown(e) {
   if (e.repeat) return;
-  const k = e.key;
-  if (k === 'Escape' || k === 'p' || k === 'P') {
+  const k = actionFor(e.code);
+  if (k === 'pause') {
     if (machine === 'paused') resumeGame();
     else pauseGame(); // no-op unless a run is counting down or active
     return;
@@ -329,9 +331,9 @@ function onKeyDown(e) {
   // Don't steal keys from form controls in menus.
   const tag = document.activeElement && document.activeElement.tagName;
   if (machine !== 'active' || tag === 'INPUT' || tag === 'SELECT') return;
-  if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') {
+  if (k === 'jump') {
     e.preventDefault(); audio.unlock(); queueAction('jump');
-  } else if (k === 'f' || k === 'F' || k === 'ArrowDown' || k === 's' || k === 'S') {
+  } else if (k === 'form') {
     e.preventDefault(); audio.unlock(); queueAction('form');
   }
 }
@@ -371,36 +373,12 @@ function leaveToTitle() {
   ui.showScreen('screen-title');
 }
 
-// --- Server time + daily ------------------------------------------------------
-async function syncDaily() {
-  if (!platform.hosted) {
-    // Local dev: the game's own server (npm start) refines the clock and marks
-    // the board ranked; without it the device clock drives an unranked daily.
-    try {
-      const t0 = Date.now();
-      const r = await fetch('/api/v1/time');
-      const body = await r.json();
-      if (body && Number.isFinite(body.now)) {
-        clockOffset = body.now - Math.round((t0 + Date.now()) / 2);
-      }
-      const d = await (await fetch('/api/v1/daily')).json();
-      if (d && d.date && Number.isFinite(d.seed)) {
-        dailyInfo = {
-          date: d.date, seed: d.seed >>> 0,
-          contentVersion: Number.isFinite(d.contentVersion) ? d.contentVersion : CONTENT_VERSION,
-        };
-        ui.setDailyLine(`Daily challenge for ${dailyInfo.date} — seed ${dailyInfo.seed.toString(16)}. Ranked (validation server).`);
-        return;
-      }
-    } catch (_) { /* offline: device clock below */ }
-    dailyInfo = localDailyInfo();
-    ui.setDailyLine('Daily challenge: local UTC day, unranked.');
-    return;
-  }
-  // Hosted: the platform serves no time/daily route; the device clock drives
-  // the UTC day and the run is ranked through the platform board.
+// --- Daily (device clock) ------------------------------------------------------
+function syncDaily() {
   dailyInfo = localDailyInfo();
-  ui.setDailyLine(`Daily challenge for ${dailyInfo.date} — seed ${dailyInfo.seed.toString(16)}. Ranked.`);
+  ui.setDailyLine(platform.isHosted()
+    ? `Daily challenge for ${dailyInfo.date} — seed ${dailyInfo.seed.toString(16)}. Ranked.`
+    : 'Daily challenge: local UTC day, unranked.');
 }
 
 // --- Boot ----------------------------------------------------------------------
@@ -436,29 +414,43 @@ function boot() {
     onSettingsChange: (patch) => {
       save.settings = { ...save.settings, ...patch };
       persist(); applySettings();
+      platform.syncSettings(save.settings);
     },
+    onSignIn: () => platform.signIn(),
+    onInvite: inviteFriend,
     graphicsInfo: (t) => (gl ? gfx.graphicsInfo(t) : null),
   });
   ui.refreshMetaScreens(save);
   applySettings();
 
-  // Platform integration (no-op in local mode): nickname + cloud mirror.
+  // Platform integration (no-op in local mode): nickname, cloud mirror,
+  // settings KV, key bindings, account buttons.
+  const pt = currentPlatformStrings();
+  ui.setAccount({ signIn: platform.canSignIn(), invite: !!platform.inviteLink(), labels: pt });
+  platform.onAuthChange(({ signedIn }) => {
+    if (signedIn) return;
+    profileName = null;
+    renderProfileLine();
+    ui.setAccount({ signIn: platform.canSignIn(), invite: false, labels: pt });
+    ui.showAccountNote(pt.signedOut);
+  });
+  platform.loadBindings(DEFAULT_BINDINGS).then((b) => { bindings = b; ui.setBindings(b); });
   platform.cloudStart(() => save);
   platform.onStatus((s) => { syncState = s; renderProfileLine(); });
-  if (platform.hosted) {
+  if (platform.isHosted()) {
     platform.myDisplayName().then((name) => { profileName = name; renderProfileLine(); });
-    platform.cloudLoad().then((remote) => {
-      if (remote) {
-        const decoded = decodeSave(JSON.stringify(remote));
-        if (decoded) {
-          save = decoded; // remote wins conflicts
-          persist();
-          applySettings();
-          ui.refreshMetaScreens(save);
-          return;
-        }
+    platform.cloudLoad().then(async (remote) => {
+      const decoded = remote ? decodeSave(JSON.stringify(remote)) : null;
+      if (decoded) save = decoded; // remote wins conflicts
+      // Platform settings KV wins over the save doc's preferences.
+      const prefs = await platform.loadRemoteSettings();
+      for (const [k, v] of Object.entries(prefs)) {
+        if (k in save.settings && v != null && typeof v === typeof save.settings[k]) save.settings[k] = v;
       }
-      platform.cloudDirty(); // first launch: mirror the local doc up
+      persist();
+      applySettings();
+      ui.refreshMetaScreens(save);
+      platform.syncSettings(save.settings);
     }).catch(() => { /* cloud unreachable: local save keeps driving */ });
   }
 
