@@ -63,7 +63,10 @@ export function showScreen(name) {
     lastFocus = document.activeElement;
     const scr = $(name);
     const focusable = scr && scr.querySelector('button:not([disabled]), [tabindex], input, select');
-    if (focusable) focusable.focus();
+    // preventScroll + reset: a low first control must not scroll the heading
+    // away; every screen opens at its top.
+    if (focusable) focusable.focus({ preventScroll: true });
+    if (scr) for (const n of [scr, ...scr.querySelectorAll('*')]) if (n.scrollTop) n.scrollTop = 0;
   } else if (lastFocus && document.contains(lastFocus)) {
     lastFocus.focus();
   }

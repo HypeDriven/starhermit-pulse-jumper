@@ -167,7 +167,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - `rules`: pure deterministic state transitions, legality, scoring, seeded random stream.
 - `session`: local or hosted commands, snapshots, prediction policy, reconnect, replay.
 - `render`: Three.js scene graph, semantic entity views, camera, lighting, VFX, quality (`src/render/three-renderer.js`; pure quality model `src/render/gfx.js`; same-revision three.js addons for post-processing and RoomEnvironment in `src/render/vendor/addons/`).
-- `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror (`src/ui/dom-ui.js`; Graphics panel strings in `src/ui/gfx-i18n.js`).
+- `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror (`src/ui/dom-ui.js`; Graphics panel strings in `src/ui/gfx-i18n.js`). Screens open at their top (heading visible): focus moves in with `preventScroll`.
 - `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
 - `content`: versioned levels, themes, tutorials, validation metadata.
 - `platform`: adapter over the shared StarHermit SDK (ships as `src/platform.js`; token, profile, cloud save, settings KV, bindings, read-only board; no telemetry).
