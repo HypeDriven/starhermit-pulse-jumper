@@ -227,13 +227,29 @@ function finishRun() {
     headline, score, best, extraLines: lines, canNext,
     onNext: () => startRun(mode, mode === 'learn' ? level.tutorialFlags.lesson + 1 : modeArg + 1),
   });
+  postToLeaderboard(score.total);
+}
+
+// Signed in: Journey, Daily and Challenge runs (cleared or wiped out) post
+// their total to the platform high-score board and the results show the rank.
+// Practice, lessons and standalone play post nothing.
+function postToLeaderboard(total) {
+  const line = document.getElementById('results-lb');
+  if (!line || !platform.isHosted() || !['journey', 'daily', 'challenge'].includes(mode)) return;
+  const pt = currentPlatformStrings();
+  line.hidden = false;
+  line.textContent = pt.lbPosting;
+  platform.submitScore(Math.max(0, total)).then((r) => {
+    line.textContent = !r.posted ? pt.lbNotPosted
+      : r.rank ? pt.lbRank.replace('{rank}', r.rank) : pt.lbPosted;
+  });
 }
 
 function submitDailyScore() {
   if (!dailyInfo) return;
-  // Clients never submit scores (platform boards are written by the server
-  // only). Hosted: the best is kept in the cloud-saved doc and the read-only
-  // platform board is shown. Standalone: the best stays on this device.
+  // Hosted: the best is kept in the cloud-saved doc, the run is posted by
+  // postToLeaderboard and the platform board is shown. Standalone: the best
+  // stays on this device.
   if (platform.isHosted()) {
     const text = 'Your best is saved to your account.';
     ui.announce('results', text);
@@ -242,7 +258,7 @@ function submitDailyScore() {
   }
 }
 
-// Read-only platform board on the daily results screen (hosted only).
+// Platform board on the daily results screen (hosted only).
 async function showPlatformDailyBoard() {
   try {
     const entries = await platform.boardEntries({ pageSize: 5 });

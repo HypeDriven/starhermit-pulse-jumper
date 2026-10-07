@@ -242,6 +242,7 @@ export function showResults({ headline, score, best, extraLines = [], canNext, o
   if (best !== null && best !== undefined) {
     s.append(el('p', { class: 'best-line' }, `Best score: ${best}`));
   }
+  s.append(el('p', { class: 'subtitle', id: 'results-lb', 'aria-live': 'polite', hidden: true }));
   const rowB = el('div', { class: 'btn-row' });
   rowB.append(btn('Retry', 'primary', H.onRetry));
   if (canNext && onNext) rowB.append(btn('Next stage', 'secondary', onNext));

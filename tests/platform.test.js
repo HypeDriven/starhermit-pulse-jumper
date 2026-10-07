@@ -85,5 +85,6 @@ test('standalone: no StarHermit request', async () => {
   assert.deepEqual(await p.loadRemoteSettings(), {});
   assert.deepEqual(await p.loadBindings({ jump: ['Space'] }), { jump: ['Space'] });
   assert.equal(await p.boardEntries(), null);
+  assert.deepEqual(await p.submitScore(700), { posted: false, rank: null });
   assert.equal(h.calls.length, 0);
 });

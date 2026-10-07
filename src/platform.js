@@ -116,7 +116,20 @@ export function loadBindings(defaults) {
   return sdk().loadBindings(defaults).catch(copy);
 }
 
-// ---- read-only hosted leaderboard ----
+// ---- hosted leaderboard ----
+/** Post a finished run's total to the high-score board (score-script.js) → { posted, rank }. */
+export async function submitScore(total) {
+  if (!isHosted()) return { posted: false, rank: null };
+  const s = sdk();
+  const keys = await s.submitScores({ 'high-score': total }).catch(() => []);
+  if (keys.indexOf('high-score') < 0) return { posted: false, rank: null };
+  try {
+    const r = await s.leaderboard('high-score', { pageSize: 100 });
+    const me = (r.items || []).find((i) => i.userId === s.userId);
+    return { posted: true, rank: me ? me.rank : null };
+  } catch (e) { return { posted: true, rank: null }; }
+}
+
 /** Top entries of the game's first platform board, or null when none. */
 export async function boardEntries(opts = {}) {
   if (!isHosted()) return null;

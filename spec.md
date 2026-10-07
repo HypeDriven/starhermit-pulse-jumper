@@ -170,7 +170,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror (`src/ui/dom-ui.js`; Graphics panel strings in `src/ui/gfx-i18n.js`). Screens open at their top (heading visible): focus moves in with `preventScroll`.
 - `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
 - `content`: versioned levels, themes, tutorials, validation metadata.
-- `platform`: adapter over the shared StarHermit SDK (ships as `src/platform.js`; token, profile, cloud save, settings KV, bindings, read-only board; no telemetry).
+- `platform`: adapter over the shared StarHermit SDK (ships as `src/platform.js`; token, profile, cloud save, settings KV, bindings, board read + `submitScore`; no telemetry).
 
 No module may mutate rules state except through a validated command. Rendering consumes immutable snapshots plus interpolation data. UI state and simulation state are separate so closing a drawer cannot affect a match.
 
@@ -192,7 +192,7 @@ No module may mutate rules state except through a validated command. Rendering c
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- The distribution has `starhermit.txt` at its root (`name=Pulse Jumper`, `launch=index.html`, `server=server.js`, `control.*` lines). `index.html` loads the shared SDK `starhermit-sdk.js` (an unchanged copy of `tools/starhermit-sdk.js`) and calls `StarHermit.init()` before the game modules; `src/platform.js` is the game's adapter over `window.StarHermit`.
+- The distribution has `starhermit.txt` at its root (`name=Pulse Jumper`, `launch=index.html`, `server=score-script.js`, `control.*` lines). `score-script.js` (canonical copy in the games repo's `tools/score-script.js`) is the platform script: a practice session that accepts `{type:'result', scores}`, range-checks each score against its board and posts it. `index.html` loads the shared SDK `starhermit-sdk.js` (an unchanged copy of `tools/starhermit-sdk.js`) and calls `StarHermit.init()` before the game modules; `src/platform.js` is the game's adapter over `window.StarHermit`.
 - The SDK reads `#game_token=` (library launch) or `#access_token=` (direct sign-in return), strips the launch fragment, takes the slug from the `game_scope` claim and renews the token via `POST /api/v1/games/{slug}/launch-token`. Tokens are never persisted. When renewal is refused the title notes that the player is signed out, hides the account line and play continues locally.
 - Without a token no StarHermit request is made. On `<id>.starhermit.com` without a token the title shows **Sign in with StarHermit**, which redirects through the platform sign-in.
 - The repo's `server.js` is a dev/test server; the client never calls its `/api` routes. Without a launch token the game makes no network request to any own-server route; hosted and standalone play both use the device clock for the UTC day.
@@ -202,14 +202,15 @@ No module may mutate rules state except through a validated command. Rendering c
 - Cloud save: the versioned save doc is mirrored to the `game:<slug>` slot (debounced 2 s on every persist, pending writes flushed with keepalive on `pagehide`/backgrounding). On start the remote doc wins; localStorage stays the offline cache.
 - Settings KV: every key of `save.settings` (volumes, mute, graphics, motion, contrast, text size, handedness, timing assist, …) is mirrored with `PATCH /settings` on change (never before the platform values were read); on start the platform values override the save doc's.
 - Controls: jump, form change and pause are declared as `control.*` in `starhermit.txt`; keydown is routed by `event.code` through `StarHermit.loadBindings()`, and How to play lists the effective keys. There is no rebinding UI.
-- **Invite a friend** (title, signed in only) copies `StarHermit.inviteLink()` and confirms on the title. Account strings are localized in all nine locales (`src/platform-i18n.js`).
+- **Invite a friend** (title, signed in only) copies `StarHermit.inviteLink()` and confirms on the title. Account and leaderboard strings are localized in all nine locales (`src/platform-i18n.js`).
 
 ### Achievements and leaderboards
 - Achievements are local and part of the cloud-saved doc; the platform has no server-declared achievements for this game.
-- Hosted daily results show the game's first platform leaderboard read-only (top entries, the player's rank, nicknames resolved through profiles) and note that the best is saved to the account; the client never submits scores on-platform. Standalone, the daily is unranked and the best stays on the device.
+- One platform board, `high-score` (integer, higher is better, 0–100,000). Signed in, every finished Journey, Daily or Challenge run (cleared or wiped out) posts its total (floored at 0) through `platform.submitScore` → `StarHermit.submitScores`, and the results screen shows "Leaderboard rank: #N" (or "Score posted / not posted to the leaderboard."). Practice and lessons post nothing.
+- Hosted daily results also show that board (top entries, the player's rank, nicknames resolved through profiles) and note that the best is saved to the account. Standalone, nothing is posted, the daily is unranked and the best stays on the device.
 
 ### Not used
-- Matchmaking, sessions, chat, friends picker, replays, realtime rooms and voice: the game is solo.
+- Matchmaking, multiplayer sessions (the only session is the short practice session `submitScores` opens), chat, friends picker, replays, realtime rooms and voice: the game is solo.
 
 ## 7. Content, economy, and retention
 
