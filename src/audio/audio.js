@@ -56,7 +56,7 @@ function playSample(eventName) {
   const buffer = ready[i];
   if (!buffer || typeof buffer.duration !== 'number') return false;
   try {
-    const src = ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), null) : ctx.createBufferSource());
     src.buffer = buffer;
     src.connect(effectsBus);
     src.start();
@@ -108,7 +108,7 @@ export function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
 function blip({ freq = 440, freqEnd = null, dur = 0.12, type = 'sine', gain = 0.3, when = 0 }) {
   if (!ctx || ctx.state !== 'running') return;
   const t0 = ctx.currentTime + when;
-  const osc = ctx.createOscillator();
+  const osc = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createOscillator(), null) : ctx.createOscillator());
   const g = ctx.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, t0);
@@ -157,7 +157,7 @@ function scheduleBeat() {
   const t0 = ctx.currentTime;
   const note = BASSLINE[beat % BASSLINE.length];
   // kick
-  const k = ctx.createOscillator(); const kg = ctx.createGain();
+  const k = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createOscillator(), null) : ctx.createOscillator()); const kg = ctx.createGain();
   k.type = 'sine';
   k.frequency.setValueAtTime(140, t0);
   k.frequency.exponentialRampToValueAtTime(45, t0 + 0.12);
@@ -165,7 +165,7 @@ function scheduleBeat() {
   kg.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
   k.connect(kg); kg.connect(musicBus); k.start(t0); k.stop(t0 + 0.2);
   // bass
-  const o = ctx.createOscillator(); const og = ctx.createGain();
+  const o = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createOscillator(), null) : ctx.createOscillator()); const og = ctx.createGain();
   o.type = 'triangle'; o.frequency.setValueAtTime(note, t0);
   og.gain.setValueAtTime(0.0001, t0);
   og.gain.exponentialRampToValueAtTime(0.35, t0 + 0.03);

@@ -471,9 +471,9 @@ function present() {
   const key = q.post && !postFailed ? [q.ao, q.bloom, q.grade, q.antialias, w, h, pixelRatio].join('|') : 'none';
   if (key !== postKey) { postKey = key; buildPost(w, h); }
   if (composer) {
-    try { composer.render(dt / 1000); return; } catch (_) { postFailed = true; composer.dispose(); composer = null; postKey = null; }
+    try { (globalThis.GameOptions ? globalThis.GameOptions.draw(composer.renderer, () => composer.render(dt / 1000)) : composer.render(dt / 1000)); return; } catch (_) { postFailed = true; composer.dispose(); composer = null; postKey = null; }
   }
-  renderer.render(scene, camera);
+  (globalThis.GameOptions ? globalThis.GameOptions.draw(renderer, () => renderer.render(scene, camera)) : renderer.render(scene, camera));
 }
 
 // ---------------------------------------------------------------- scene
