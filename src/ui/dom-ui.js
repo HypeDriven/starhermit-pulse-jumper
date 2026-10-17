@@ -7,6 +7,7 @@
 import { THEMES, journeyCount } from '../core/levels.js';
 import { PRESETS, CATEGORIES, DEFAULT_GRAPHICS, presetTier, choosePreset } from '../render/gfx.js';
 import { gfxStrings } from './gfx-i18n.js';
+import { T, N, onLanguage } from '../lang.js';
 
 const $ = (id) => document.getElementById(id);
 let H = {}; // handlers supplied by game.js
@@ -85,35 +86,36 @@ function buildTitle(save) {
   const core = el('div', { class: 'screen-core' });
   core.append(el('h1', { class: 'title-main', id: 'title-heading' }, 'Pulse Jumper'));
   core.append(el('p', { class: 'subtitle' },
-    'A one-button rhythm platformer in a neon world. Jump the slabs, phase the gates, ride the pulse.'));
-  core.append(btn('▶ PLAY', 'primary', H.onPlay, 'play-btn'));
+    T('A one-button rhythm platformer in a neon world. Jump the slabs, phase the gates, ride the pulse.')));
+  core.append(btn(T('▶ PLAY'), 'primary', H.onPlay, 'play-btn'));
   const row = el('div', { class: 'btn-row' });
   row.append(
-    btn('Daily', 'secondary', () => H.onMode('daily')),
-    btn('Journey', 'secondary', () => H.onMode('journey')),
-    btn('Learn', 'secondary', () => H.onMode('learn')),
-    btn('Help', 'secondary', () => H.onShowOverlay('screen-help')),
-    btn('Settings', 'secondary', () => H.onShowOverlay('screen-settings')),
-    btn('Invite a friend', 'secondary', () => H.onInvite(), 'invite-btn'),
-    btn('Sign in with StarHermit', 'secondary', () => H.onSignIn(), 'signin-btn'));
+    btn(T('Daily'), 'secondary', () => H.onMode('daily')),
+    btn(T('Journey'), 'secondary', () => H.onMode('journey')),
+    btn(T('Learn'), 'secondary', () => H.onMode('learn')),
+    btn(T('Help'), 'secondary', () => H.onShowOverlay('screen-help')),
+    btn(T('Settings'), 'secondary', () => H.onShowOverlay('screen-settings')),
+    btn('', 'secondary', () => H.onInvite(), 'invite-btn'),
+    btn('', 'secondary', () => H.onSignIn(), 'signin-btn'));
   core.append(row);
   core.append(el('p', { id: 'title-account-note', class: 'profile-line', role: 'status', hidden: true }));
   s.append(core);
 
   const left = el('div', { class: 'rail left' });
-  left.append(el('h3', {}, 'Progress'));
-  left.append(el('p', {}, `Journey stage ${save.journeyUnlocked} of ${journeyCount()} unlocked.`));
+  left.append(el('h3', {}, T('Progress')));
+  left.append(el('p', {}, T('Journey stage {n} of {total} unlocked.', { n: save.journeyUnlocked, total: journeyCount() })));
   const done = Object.keys(save.tutorialDone).length;
-  left.append(el('p', {}, `Lessons completed: ${done}/3.`));
-  left.append(el('p', {}, `Achievements unlocked: ${Object.keys(save.achievements).length}.`));
+  left.append(el('p', {}, T('Lessons completed: {n}/3.', { n: done })));
+  left.append(el('p', {}, T('Achievements unlocked: {n}.', { n: Object.keys(save.achievements).length })));
   s.append(left);
   const right = el('div', { class: 'rail right' });
-  right.append(el('h3', {}, 'Today'));
-  right.append(el('p', { id: 'title-daily-line' }, 'Daily challenge: one shared seed per UTC day.'));
+  right.append(el('h3', {}, T('Today')));
+  right.append(el('p', { id: 'title-daily-line' }, dailyLine ? dailyLine() : T('Daily challenge: one shared seed per UTC day.')));
   right.append(el('p', { id: 'title-profile-line', class: 'profile-line', hidden: true }));
   s.append(right);
   renderProfileLine();
   renderAccount();
+  showAccountNote(accountNote);
 }
 
 // StarHermit account buttons: sign-in only on the hosted domain without a
@@ -125,19 +127,22 @@ function renderAccount() {
   if (!si || !inv) return;
   si.hidden = !account.signIn;
   inv.hidden = !account.invite;
-  if (account.labels) {
-    si.textContent = account.labels.signIn;
-    inv.textContent = account.labels.invite;
+  const labels = txt(account.labels);
+  if (labels) {
+    si.textContent = labels.signIn;
+    inv.textContent = labels.invite;
   }
 }
 export function setAccount(a) {
   account = { ...account, ...a };
   renderAccount();
 }
+let accountNote = null;
 export function showAccountNote(text) {
+  accountNote = text;
   const n = $('title-account-note');
-  if (!n) return;
-  n.textContent = text;
+  if (!n || !text) return;
+  n.textContent = txt(text);
   n.hidden = false;
 }
 
@@ -145,29 +150,29 @@ function buildModes() {
   const s = $('screen-modes');
   s.innerHTML = '';
   const core = el('div', { class: 'screen-core' });
-  core.append(el('h2', { class: 'screen-title', id: 'modes-heading' }, 'Choose a mode'));
+  core.append(el('h2', { class: 'screen-title', id: 'modes-heading' }, T('Choose a mode')));
   const mk = (title, desc, mode, arg) => {
     const c = el('div', { class: 'card' });
     c.append(el('h3', {}, title), el('p', {}, desc));
-    c.append(btn('Play', 'secondary', () => H.onMode(mode, arg)));
+    c.append(btn(T('Play'), 'secondary', () => H.onMode(mode, arg)));
     return c;
   };
   const cards = el('div', { class: 'cards' });
   cards.append(
-    mk('Learn', 'Three short interactive lessons. Unranked, about a minute each.', 'learn'),
-    mk('Journey', '40 stages of rising difficulty. Mastery trial every 8th stage. Progress is saved.', 'journey'),
-    mk('Daily', 'One shared seed per UTC day. Ranked on the leaderboard.', 'daily'),
-    mk('Practice', 'Pick a difficulty 1–5. Unranked, restart freely.', 'practice'),
-    mk('Challenge', 'Constrained variants: a move-limit course and a speed course. Unranked.', 'challenge'));
+    mk(T('Learn'), T('Three short interactive lessons. Unranked, about a minute each.'), 'learn'),
+    mk(T('Journey'), T('40 stages of rising difficulty. Mastery trial every 8th stage. Progress is saved.'), 'journey'),
+    mk(T('Daily'), T('One shared seed per UTC day. Ranked on the leaderboard.'), 'daily'),
+    mk(T('Practice'), T('Pick a difficulty 1–5. Unranked, restart freely.'), 'practice'),
+    mk(T('Challenge'), T('Constrained variants: a move-limit course and a speed course. Unranked.'), 'challenge'));
   core.append(cards);
-  core.append(btn('Back', 'secondary', () => showScreen('screen-title')));
+  core.append(btn(T('Back'), 'secondary', () => showScreen('screen-title')));
   s.append(core);
 }
 
 function buildJourney(save) {
   const s = core('screen-journey');
-  s.append(el('h2', { class: 'screen-title', id: 'journey-heading' }, 'Journey'));
-  const grid = el('div', { class: 'level-grid', role: 'group', ariaLabel: 'Journey stages' });
+  s.append(el('h2', { class: 'screen-title', id: 'journey-heading' }, T('Journey')));
+  const grid = el('div', { class: 'level-grid', role: 'group', ariaLabel: T('Journey stages') });
   for (let i = 1; i <= journeyCount(); i++) {
     const locked = i > save.journeyUnlocked;
     const best = save.journeyBest['journey-' + i];
@@ -175,54 +180,67 @@ function buildJourney(save) {
       (i % 8 === 0 ? 'mastery ' : '') + (locked ? 'locked' : 'secondary'),
       () => { if (!locked) H.onMode('journey', i); });
     b.disabled = locked;
-    b.title = locked ? 'Locked' : (best !== undefined ? `Best: ${best}` : 'Not cleared yet');
+    b.title = locked ? T('Locked') : (best !== undefined ? T('Best: {n}', { n: best }) : T('Not cleared yet'));
     grid.append(b);
   }
   s.append(grid);
-  s.append(el('p', { class: 'subtitle' }, 'Gold-bordered stages are mastery trials.'));
-  s.append(btn('Back', 'secondary', () => showScreen('screen-modes')));
+  s.append(el('p', { class: 'subtitle' }, T('Gold-bordered stages are mastery trials.')));
+  s.append(btn(T('Back'), 'secondary', () => showScreen('screen-modes')));
 }
 
 function buildPractice() {
   const s = core('screen-practice');
-  s.append(el('h2', { class: 'screen-title' }, 'Practice'));
-  s.append(el('p', { class: 'subtitle' }, 'Select a difficulty. Unranked; restart any time.'));
+  s.append(el('h2', { class: 'screen-title' }, T('Practice')));
+  s.append(el('p', { class: 'subtitle' }, T('Select a difficulty. Unranked; restart any time.')));
   const row = el('div', { class: 'btn-row' });
   for (let d = 1; d <= 5; d++) {
     row.append(btn(String(d), 'secondary', () => H.onMode('practice', d)));
   }
-  s.append(row, btn('Back', 'secondary', () => showScreen('screen-modes')));
+  s.append(row, btn(T('Back'), 'secondary', () => showScreen('screen-modes')));
 }
 
 function buildChallenge() {
   const s = core('screen-challenge');
-  s.append(el('h2', { class: 'screen-title' }, 'Challenge'));
+  s.append(el('h2', { class: 'screen-title' }, T('Challenge')));
   const cards = el('div', { class: 'cards' });
   const c1 = el('div', { class: 'card' });
-  c1.append(el('h3', {}, 'Move Limit'), el('p', {}, 'Finish the course using at most 24 actions. Every jump and form change counts.'));
-  c1.append(btn('Play', 'secondary', () => H.onMode('challenge', 'moves')));
+  c1.append(el('h3', {}, T('Move Limit')), el('p', {}, T('Finish the course using at most 24 actions. Every jump and form change counts.')));
+  c1.append(btn(T('Play'), 'secondary', () => H.onMode('challenge', 'moves')));
   const c2 = el('div', { class: 'card' });
-  c2.append(el('h3', {}, 'Speed Target'), el('p', {}, 'Maximum speed course. Finish in 19 seconds or better.'));
-  c2.append(btn('Play', 'secondary', () => H.onMode('challenge', 'speed')));
+  c2.append(el('h3', {}, T('Speed Target')), el('p', {}, T('Maximum speed course. Finish in 19 seconds or better.')));
+  c2.append(btn(T('Play'), 'secondary', () => H.onMode('challenge', 'speed')));
   cards.append(c1, c2);
-  s.append(cards, btn('Back', 'secondary', () => showScreen('screen-modes')));
+  s.append(cards, btn(T('Back'), 'secondary', () => showScreen('screen-modes')));
 }
 
 function buildPause() {
   const s = core('screen-pause');
-  s.append(el('h2', { class: 'screen-title', id: 'pause-heading' }, 'Paused'));
+  s.append(el('h2', { class: 'screen-title', id: 'pause-heading' }, T('Paused')));
   const col = el('div', { class: 'settings-grid' });
-  col.append(btn('Resume', 'primary', H.onResume, 'resume-btn'));
-  col.append(btn('Restart run', 'secondary', H.onRetry));
-  col.append(btn('Help', 'secondary', () => H.onShowOverlay('screen-help')));
-  col.append(btn('Settings', 'secondary', () => H.onShowOverlay('screen-settings')));
-  col.append(btn('Leave to title', 'danger', H.onLeave));
+  col.append(btn(T('Resume'), 'primary', H.onResume, 'resume-btn'));
+  col.append(btn(T('Restart run'), 'secondary', H.onRetry));
+  col.append(btn(T('Help'), 'secondary', () => H.onShowOverlay('screen-help')));
+  col.append(btn(T('Settings'), 'secondary', () => H.onShowOverlay('screen-settings')));
+  col.append(btn(T('Leave to title'), 'danger', H.onLeave));
   s.append(col);
 }
 
-export function showResults({ headline, score, best, extraLines = [], canNext, onNext }) {
+// Text arguments may be functions so the screen re-renders in a new language.
+const txt = (v) => (typeof v === 'function' ? v() : v);
+let lastResults = null;
+
+export function showResults(args) {
+  lastResults = args;
+  renderResults(args);
+  showScreen('screen-results');
+  announce('results', T('{headline}. Total score {n}.', { headline: txt(args.headline), n: args.score.total }));
+}
+
+function renderResults({ headline, score, best, extraLines = [], canNext, onNext }) {
+  const lb = $('results-lb');
+  const lbState = lb ? { hidden: lb.hidden, text: lb.textContent } : null;
   const s = core('screen-results');
-  s.append(el('h2', { class: 'results-title', id: 'results-heading' }, headline));
+  s.append(el('h2', { class: 'results-title', id: 'results-heading' }, txt(headline)));
   const table = el('table', { class: 'breakdown' });
   const row = (label, val) => {
     const tr = el('tr');
@@ -230,27 +248,26 @@ export function showResults({ headline, score, best, extraLines = [], canNext, o
     return tr;
   };
   table.append(
-    row('Checkpoints', score.checkpoints),
-    row('Gems', score.gems),
-    row('Finish bonus', score.finish),
-    row('Attempt penalty', score.penalties));
+    row(T('Checkpoints'), score.checkpoints),
+    row(T('Gems'), score.gems),
+    row(T('Finish bonus'), score.finish),
+    row(T('Attempt penalty'), score.penalties));
   const tr = el('tr', { class: 'total' });
-  tr.append(el('td', {}, 'Total'), el('td', {}, String(score.total)));
+  tr.append(el('td', {}, T('Total')), el('td', {}, String(score.total)));
   table.append(tr);
   s.append(table);
-  for (const line of extraLines) s.append(el('p', { class: 'subtitle' }, line));
+  for (const line of extraLines) s.append(el('p', { class: 'subtitle' }, txt(line)));
   if (best !== null && best !== undefined) {
-    s.append(el('p', { class: 'best-line' }, `Best score: ${best}`));
+    s.append(el('p', { class: 'best-line' }, T('Best score: {n}', { n: best })));
   }
   s.append(el('p', { class: 'subtitle', id: 'results-lb', 'aria-live': 'polite', hidden: true }));
   const rowB = el('div', { class: 'btn-row' });
-  rowB.append(btn('Retry', 'primary', H.onRetry));
-  if (canNext && onNext) rowB.append(btn('Next stage', 'secondary', onNext));
-  rowB.append(btn('Mode select', 'secondary', () => showScreen('screen-modes')),
-    btn('Title', 'secondary', H.onLeave));
+  rowB.append(btn(T('Retry'), 'primary', H.onRetry));
+  if (canNext && onNext) rowB.append(btn(T('Next stage'), 'secondary', onNext));
+  rowB.append(btn(T('Mode select'), 'secondary', () => showScreen('screen-modes')),
+    btn(T('Title'), 'secondary', H.onLeave));
   s.append(rowB);
-  showScreen('screen-results');
-  announce('results', `${headline}. Total score ${score.total}.`);
+  return lbState;
 }
 
 // Effective keyboard bindings ({ action: KeyboardEvent.code[] }) for Help.
@@ -258,7 +275,7 @@ let bindings = {
   jump: ['Space', 'ArrowUp', 'KeyW'], form: ['KeyF', 'ArrowDown', 'KeyS'], pause: ['Escape', 'KeyP'],
 };
 function keyLabel(code) {
-  const named = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Escape: 'Esc', Space: 'Space' };
+  const named = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Escape: 'Esc', Space: T('Space') };
   if (named[code]) return named[code];
   if (/^Key[A-Z]$/.test(code)) return code.slice(3);
   if (/^Digit\d$/.test(code)) return code.slice(5);
@@ -266,7 +283,7 @@ function keyLabel(code) {
 }
 function kbds(action) {
   const list = (bindings[action] || []).map((c) => `<kbd>${keyLabel(c)}</kbd>`);
-  return list.length > 1 ? `${list.slice(0, -1).join(', ')} or ${list[list.length - 1]}` : (list[0] || '');
+  return list.length > 1 ? T('{a} or {b}', { a: list.slice(0, -1).join(', '), b: list[list.length - 1] }) : (list[0] || '');
 }
 export function setBindings(b) {
   bindings = b;
@@ -275,16 +292,16 @@ export function setBindings(b) {
 
 function helpCards() {
   return [
-    ['Jump', `Press ${kbds('jump')}, or tap the right side to jump. Jumping clears the low amber slabs.`],
-    ['Form change', `Press ${kbds('form')}, or tap the left side to switch between PULSE (cyan sphere) and NOVA (magenta, wide halo). Tall violet gates can only be phased through as NOVA.`],
-    ['Scoring', 'Checkpoints +50, gems +25, finishing +500. Each failed attempt on a stage costs 10 points (max 100).'],
-    ['Pause', `Press ${kbds('pause')}, or the II button. The game pauses automatically when the tab is hidden.`],
+    [T('Jump'), T('Press {keys}, or tap the right side to jump. Jumping clears the low amber slabs.', { keys: kbds('jump') })],
+    [T('Form change'), T('Press {keys}, or tap the left side to switch between PULSE (cyan sphere) and NOVA (magenta, wide halo). Tall violet gates can only be phased through as NOVA.', { keys: kbds('form') })],
+    [T('Scoring'), T('Checkpoints +50, gems +25, finishing +500. Each failed attempt on a stage costs 10 points (max 100).')],
+    [T('Pause'), T('Press {keys}, or the II button. The game pauses automatically when the tab is hidden.', { keys: kbds('pause') })],
   ];
 }
 
 function buildHelp() {
   const s = core('screen-help');
-  s.append(el('h2', { class: 'screen-title', id: 'help-heading' }, 'How to play'));
+  s.append(el('h2', { class: 'screen-title', id: 'help-heading' }, T('How to play')));
   const cards = el('div', { class: 'cards' });
   for (const [title, html] of helpCards()) {
     const c = el('div', { class: 'card' });
@@ -294,49 +311,57 @@ function buildHelp() {
     c.append(p);
     cards.append(c);
   }
-  s.append(cards, btn('Back', 'secondary', () => showScreen(H.onHelpBack())));
+  s.append(cards, btn(T('Back'), 'secondary', () => showScreen(H.onHelpBack())));
 }
 
 const SETTING_DEFS = [
-  ['musicVolume', 'Music volume', 'range'],
-  ['effectsVolume', 'Effects volume', 'range'],
-  ['muted', 'Mute all audio', 'checkbox'],
-  ['reducedMotion', 'Reduced motion', 'checkbox'],
-  ['highContrast', 'High contrast', 'checkbox'],
-  ['largerText', 'Larger text', 'checkbox'],
-  ['leftHanded', 'Left-handed touch controls', 'checkbox'],
-  ['timingAssist', 'Timing assist (landing marker)', 'checkbox'],
+  ['musicVolume', N('Music volume'), 'range'],
+  ['effectsVolume', N('Effects volume'), 'range'],
+  ['muted', N('Mute all audio'), 'checkbox'],
+  ['reducedMotion', N('Reduced motion'), 'checkbox'],
+  ['highContrast', N('High contrast'), 'checkbox'],
+  ['largerText', N('Larger text'), 'checkbox'],
+  ['leftHanded', N('Left-handed touch controls'), 'checkbox'],
+  ['timingAssist', N('Timing assist (landing marker)'), 'checkbox'],
 ];
 
+// The Settings screen keeps one skeleton: its game controls and the Graphics
+// controls redraw inside their own boxes (#settings-controls, #gfx-controls),
+// so the shared Sound / Language / Report sections that game-options.js mounts
+// in #gfx-section (data-options-graphics) are never torn down.
 function buildSettings(settings) {
-  const s = core('screen-settings');
-  s.append(el('h2', { class: 'screen-title', id: 'settings-heading' }, 'Settings'));
-  const grid = el('div', { class: 'settings-grid' });
-  for (const [key, label, kind, options] of SETTING_DEFS) {
+  let s = $('settings-shell');
+  if (!s) {
+    s = core('screen-settings');
+    s.id = 'settings-shell';
+    s.append(el('h2', { class: 'screen-title', id: 'settings-heading' }));
+    const grid = el('div', { id: 'settings-controls', class: 'settings-grid' });
+    const gfxBox = el('div', { id: 'gfx-section', class: 'settings-grid gfx-section', role: 'group', ariaLabelledby: 'gfx-heading' });
+    gfxBox.dataset.optionsGraphics = '';
+    gfxBox.append(el('div', { id: 'gfx-controls', class: 'settings-grid' }));
+    const cols = el('div', { class: 'settings-cols' });
+    cols.append(grid, gfxBox);
+    s.append(cols, btn('', 'secondary', () => showScreen(H.onHelpBack()), 'settings-back'));
+  }
+  $('settings-heading').textContent = T('Settings');
+  $('settings-back').textContent = T('Back');
+  const grid = $('settings-controls');
+  grid.innerHTML = '';
+  for (const [key, label, kind] of SETTING_DEFS) {
     const lab = el('label', {});
-    lab.append(el('span', {}, label));
+    lab.append(el('span', {}, T(label)));
     let input;
     if (kind === 'range') {
       input = el('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(settings[key]) });
       input.addEventListener('input', () => H.onSettingsChange({ [key]: Number(input.value) }));
-    } else if (kind === 'checkbox') {
+    } else {
       input = el('input', { type: 'checkbox', checked: !!settings[key] });
       input.addEventListener('change', () => H.onSettingsChange({ [key]: input.checked }));
-    } else {
-      input = el('select', {});
-      for (const o of options) {
-        input.append(el('option', { value: o, selected: settings[key] === o }, o));
-      }
-      input.addEventListener('change', () => H.onSettingsChange({ [key]: input.value }));
     }
     input.id = 'setting-' + key;
     lab.append(input);
     grid.append(lab);
   }
-  const gfxBox = el('div', { id: 'gfx-section', class: 'settings-grid gfx-section', role: 'group', ariaLabelledby: 'gfx-heading' });
-  const cols = el('div', { class: 'settings-cols' });
-  cols.append(grid, gfxBox);
-  s.append(cols, btn('Back', 'secondary', () => showScreen(H.onHelpBack())));
   gfxSettings = settings;
   buildGraphics();
 }
@@ -371,7 +396,7 @@ function gfxRow(labelText, input, extra) {
 }
 
 function buildGraphics() {
-  const box = $('gfx-section');
+  const box = $('gfx-controls');
   if (!box || !gfxSettings) return;
   const t = gfxStrings();
   const g = currentGraphics();
@@ -446,11 +471,35 @@ export function init(handlers) {
   buildModes(); buildPause(); buildPractice(); buildChallenge(); buildHelp();
 }
 
+let lastSave = null;
 export function refreshMetaScreens(save) {
+  lastSave = save;
   buildTitle(save);
   buildJourney(save);
   buildSettings(save.settings);
 }
+
+// Language change: rebuild every screen in place (the visible one keeps its
+// place and focus), relabel Settings without touching the shared sections.
+onLanguage(() => {
+  const active = document.activeElement;
+  const focusId = active && active.id;
+  const focusText = active && active.tagName === 'BUTTON' && !focusId ? [...(active.closest('.screen')?.querySelectorAll('button') || [])].indexOf(active) : -1;
+  const focusScreen = active && active.closest && active.closest('.screen');
+  buildModes(); buildPause(); buildPractice(); buildChallenge(); buildHelp();
+  if (lastSave) { buildTitle(lastSave); buildJourney(lastSave); buildSettings(lastSave.settings); }
+  if (lastResults && $('screen-results').querySelector('.screen-core')) {
+    const lb = renderResults(lastResults);
+    const line = $('results-lb');
+    if (lb && line) { line.hidden = lb.hidden; line.textContent = lb.text; }
+    if (lastBoard) showDailyBoard(lastBoard);
+  }
+  if (focusId && $(focusId) && document.activeElement !== $(focusId)) $(focusId).focus({ preventScroll: true });
+  else if (focusScreen && focusText >= 0 && document.activeElement === document.body) {
+    const b = focusScreen.querySelectorAll('button')[focusText];
+    if (b) b.focus({ preventScroll: true });
+  }
+});
 
 export function showCountdown(text) {
   const s = core('screen-countdown');
@@ -482,15 +531,17 @@ export function applyAccessibility(settings) {
   document.body.classList.toggle('left-handed', !!settings.leftHanded);
 }
 
+let dailyLine = null;
 export function setDailyLine(text) {
+  dailyLine = typeof text === 'function' ? text : () => text;
   const n = $('title-daily-line');
-  if (n) n.textContent = text;
+  if (n) n.textContent = dailyLine();
 }
 
 const SYNC_LABELS = {
-  saving: 'saving…',
-  synced: 'cloud save synced',
-  offline: 'offline — progress kept locally',
+  saving: () => T('saving…'),
+  synced: () => T('cloud save synced'),
+  offline: () => T('offline — progress kept locally'),
 };
 
 function renderProfileLine() {
@@ -498,7 +549,7 @@ function renderProfileLine() {
   if (!n) return;
   if (!profileName) { n.hidden = true; return; }
   const status = SYNC_LABELS[profileStatus];
-  n.textContent = `Playing as ${profileName}` + (status ? ` · ${status}` : '');
+  n.textContent = T('Playing as {name}', { name: profileName }) + (status ? ` · ${status()}` : '');
   n.hidden = false;
 }
 
@@ -512,7 +563,9 @@ export function setProfileLine(name, status) {
 // Read-only daily board on the results screen (hosted only). Safe to call
 // before the results screen exists — it no-ops unless results are visible.
 let dailyNote = null;
-export function showDailyBoard({ source, entries = [], myRank = null }) {
+let lastBoard = null;
+export function showDailyBoard(args) {
+  const { source, entries = [], myRank = null } = args;
   const s = $('screen-results');
   if (!s || s.hidden) return;
   const host = s.querySelector('.screen-core');
@@ -521,19 +574,20 @@ export function showDailyBoard({ source, entries = [], myRank = null }) {
   if (old) old.remove();
   const box = el('div', { id: 'daily-board', class: 'daily-board' });
   if (source === 'platform') {
-    box.append(el('h3', {}, 'Daily board — platform'));
-    if (!entries.length) box.append(el('p', { class: 'subtitle' }, 'No entries yet today.'));
+    box.append(el('h3', {}, T('Daily board — platform')));
+    if (!entries.length) box.append(el('p', { class: 'subtitle' }, T('No entries yet today.')));
     const list = el('ol', { class: 'board-list' });
     for (const e of entries) list.append(el('li', {}, `${e.rank}. ${e.name} — ${e.score}`));
     box.append(list);
-    if (myRank) box.append(el('p', { class: 'best-line' }, `Your platform rank: ${myRank}.`));
+    if (myRank) box.append(el('p', { class: 'best-line' }, T('Your platform rank: {n}.', { n: myRank })));
   } else {
-    box.append(el('h3', {}, 'Daily board'));
+    box.append(el('h3', {}, T('Daily board')));
     box.append(el('p', { class: 'subtitle' },
-      'No platform leaderboard for this game yet — your best is saved to your account.'));
+      T('No platform leaderboard for this game yet — your best is saved to your account.')));
   }
-  if (dailyNote) box.append(el('p', { class: 'subtitle', id: 'daily-board-note' }, dailyNote));
+  if (dailyNote) box.append(el('p', { class: 'subtitle', id: 'daily-board-note' }, txt(dailyNote)));
   host.append(box);
+  lastBoard = args;
 }
 
 // Graceful-fallback note under the daily board (e.g. validation backend down).
@@ -542,5 +596,5 @@ export function showDailyNote(text) {
   if (!text) return;
   const box = $('daily-board');
   if (!box || $('daily-board-note')) return;
-  box.append(el('p', { class: 'subtitle', id: 'daily-board-note' }, text));
+  box.append(el('p', { class: 'subtitle', id: 'daily-board-note' }, txt(text)));
 }

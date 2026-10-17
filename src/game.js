@@ -8,9 +8,10 @@ import { createRun, applyCommand, scoreOf, hashState } from './core/rules.js';
 import {
   journeyLevel, dailyLevel, practiceLevel, challengeLevel, tutorialLevel, dailySeedFor,
 } from './core/levels.js';
-import { loadSave, storeSave, decodeSave } from './core/save.js';
+import { loadSave, storeSave, migrate, mergeSaves } from './core/save.js';
 import * as platform from './platform.js';
 import { currentPlatformStrings } from './platform-i18n.js';
+import { T, N, onLanguage } from './lang.js';
 import * as audio from './audio/audio.js?v=production-qa-1';
 import * as gfx from './render/three-renderer.js';
 import * as ui from './ui/dom-ui.js';
@@ -67,18 +68,18 @@ function applySettings() {
 }
 
 const ACH_LABELS = {
-  'first-clear': 'First Clear',
-  'journey-complete': 'Journey Complete',
-  'tutorial-graduate': 'Tutorial Graduate',
-  'oof': 'Oof',
-  'streak-7': 'Seven-Day Pulse',
+  'first-clear': N('First Clear'),
+  'journey-complete': N('Journey Complete'),
+  'tutorial-graduate': N('Tutorial Graduate'),
+  'oof': N('Oof'),
+  'streak-7': N('Seven-Day Pulse'),
 };
 
 function unlockAch(key) {
   if (!ACH_LABELS[key] || save.achievements[key]) return;
   save.achievements[key] = true;
   persist();
-  ui.announce('results', `Achievement unlocked: ${ACH_LABELS[key]}.`);
+  ui.announce('results', T('Achievement unlocked: {name}.', { name: T(ACH_LABELS[key]) }));
 }
 
 // Consecutive UTC days with a cleared daily run, ending today or yesterday.
@@ -129,17 +130,17 @@ function objectiveText() {
   if (!level) return '';
   if (level.tutorialFlags) {
     const t = level.tutorialFlags;
-    if (t.lesson === 1) return 'Lesson 1: press JUMP (Space) to clear the amber slabs.';
-    if (t.lesson === 2) return 'Lesson 2: press FORM (F) to become NOVA and phase through the violet gates.';
-    return 'Lesson 3: combine jumps and form changes to reach the beacon.';
+    if (t.lesson === 1) return T('Lesson 1: press JUMP (Space) to clear the amber slabs.');
+    if (t.lesson === 2) return T('Lesson 2: press FORM (F) to become NOVA and phase through the violet gates.');
+    return T('Lesson 3: combine jumps and form changes to reach the beacon.');
   }
   if (level.challenge && level.challenge.kind === 'move-limit') {
-    return `Move limit: finish using at most ${level.challenge.maxActions} actions.`;
+    return T('Move limit: finish using at most {n} actions.', { n: level.challenge.maxActions });
   }
   if (level.challenge && level.challenge.kind === 'speed') {
-    return `Speed target: finish in under ${level.challenge.target + 1} seconds.`;
+    return T('Speed target: finish in under {n} seconds.', { n: level.challenge.target + 1 });
   }
-  return 'Reach the beacon. Jump amber slabs; phase violet gates as NOVA.';
+  return T('Reach the beacon. Jump amber slabs; phase violet gates as NOVA.');
 }
 
 function queueAction(type) {
@@ -173,10 +174,13 @@ function challengeFailed() {
   if (state.phase !== 'won') return null;
   const actions = state.jumpsUsed + state.formsUsed;
   if (level.challenge.kind === 'move-limit' && actions > level.challenge.maxActions) {
-    return `Move limit exceeded (${actions}/${level.challenge.maxActions}).`;
+    const max = level.challenge.maxActions;
+    return () => T('Move limit exceeded ({n}/{max}).', { n: actions, max });
   }
   if (level.challenge.kind === 'speed' && state.elapsed > level.challenge.target + 1) {
-    return `Too slow (${state.elapsed.toFixed(1)}s, target ${level.challenge.target + 1}s).`;
+    const t = state.elapsed.toFixed(1);
+    const target = level.challenge.target + 1;
+    return () => T('Too slow ({t}s, target {target}s).', { t, target });
   }
   return null;
 }
@@ -213,9 +217,11 @@ function finishRun() {
   }
   if (state.jumpsUsed + state.formsUsed === 0 && state.phase === 'dead') unlockAch('oof');
 
-  const headline = won && !failReason ? 'STAGE CLEAR!' : (won ? 'CLEAR — CHALLENGE FAILED' : 'WIPED OUT');
+  const headlineKey = won && !failReason ? N('STAGE CLEAR!') : (won ? N('CLEAR — CHALLENGE FAILED') : N('WIPED OUT'));
+  const headline = () => T(headlineKey);
   if (failReason) lines.push(failReason);
-  lines.push(`Time ${state.elapsed.toFixed(1)}s · ${state.jumpsUsed} jumps · ${state.formsUsed} form changes`);
+  const timeVars = { t: state.elapsed.toFixed(1), jumps: state.jumpsUsed, forms: state.formsUsed };
+  lines.push(() => T('Time {t}s · {jumps} jumps · {forms} form changes', timeVars));
 
   const best = mode === 'journey' ? save.journeyBest[level.id]
     : mode === 'daily' ? save.dailyBest[dailyInfo ? dailyInfo.date : today()] : null;
@@ -236,13 +242,23 @@ function finishRun() {
 function postToLeaderboard(total) {
   const line = document.getElementById('results-lb');
   if (!line || !platform.isHosted() || !['journey', 'daily', 'challenge'].includes(mode)) return;
+  lbResult = { pending: true };
+  renderLeaderboardLine();
+  platform.submitScore(Math.max(0, total)).then((r) => {
+    lbResult = r;
+    renderLeaderboardLine();
+  });
+}
+
+// The results' leaderboard line, in the current language.
+let lbResult = null;
+function renderLeaderboardLine() {
+  const line = document.getElementById('results-lb');
+  if (!line || !lbResult) return;
   const pt = currentPlatformStrings();
   line.hidden = false;
-  line.textContent = pt.lbPosting;
-  platform.submitScore(Math.max(0, total)).then((r) => {
-    line.textContent = !r.posted ? pt.lbNotPosted
-      : r.rank ? pt.lbRank.replace('{rank}', r.rank) : pt.lbPosted;
-  });
+  line.textContent = lbResult.pending ? pt.lbPosting : !lbResult.posted ? pt.lbNotPosted
+    : lbResult.rank ? pt.lbRank.replace('{rank}', lbResult.rank) : pt.lbPosted;
 }
 
 function submitDailyScore() {
@@ -251,8 +267,8 @@ function submitDailyScore() {
   // postToLeaderboard and the platform board is shown. Standalone: the best
   // stays on this device.
   if (platform.isHosted()) {
-    const text = 'Your best is saved to your account.';
-    ui.announce('results', text);
+    const text = () => T('Your best is saved to your account.');
+    ui.announce('results', text());
     ui.showDailyNote(text);
     showPlatformDailyBoard();
   }
@@ -298,7 +314,7 @@ function frame(now) {
       accumulator -= 1;
       countdownLeft -= 1;
       if (countdownLeft > 0) ui.showCountdown(String(countdownLeft));
-      else { machine = 'active'; ui.showScreen(null); ui.announce('objective', 'Go!'); }
+      else { machine = 'active'; ui.showScreen(null); ui.announce('objective', T('Go!')); }
     }
   } else if (machine === 'active') {
     accumulator += dt;
@@ -392,9 +408,10 @@ function leaveToTitle() {
 // --- Daily (device clock) ------------------------------------------------------
 function syncDaily() {
   dailyInfo = localDailyInfo();
+  const info = dailyInfo;
   ui.setDailyLine(platform.isHosted()
-    ? `Daily challenge for ${dailyInfo.date} — seed ${dailyInfo.seed.toString(16)}. Ranked.`
-    : 'Daily challenge: local UTC day, unranked.');
+    ? () => T('Daily challenge for {date} — seed {seed}. Ranked.', { date: info.date, seed: info.seed.toString(16) })
+    : () => T('Daily challenge: local UTC day, unranked.'));
 }
 
 // --- Boot ----------------------------------------------------------------------
@@ -441,23 +458,33 @@ function boot() {
 
   // Platform integration (no-op in local mode): nickname, cloud mirror,
   // settings KV, key bindings, account buttons.
-  const pt = currentPlatformStrings();
+  const pt = () => currentPlatformStrings();
   ui.setAccount({ signIn: platform.canSignIn(), invite: !!platform.inviteLink(), labels: pt });
   platform.onAuthChange(({ signedIn }) => {
     if (signedIn) return;
     profileName = null;
     renderProfileLine();
     ui.setAccount({ signIn: platform.canSignIn(), invite: false, labels: pt });
-    ui.showAccountNote(pt.signedOut);
+    ui.showAccountNote(() => pt().signedOut);
   });
+  // Language change: dom-ui has rebuilt the screens; refresh what game.js owns.
+  onLanguage(() => { renderProfileLine(); renderLeaderboardLine(); });
   platform.loadBindings(DEFAULT_BINDINGS).then((b) => { bindings = b; ui.setBindings(b); });
   platform.cloudStart(() => save);
   platform.onStatus((s) => { syncState = s; renderProfileLine(); });
   if (platform.isHosted()) {
     platform.myDisplayName().then((name) => { profileName = name; renderProfileLine(); });
+    // Another device saved since our load: merge its progress in and save again.
+    platform.onConflict((remote) => {
+      if (remote && typeof remote === 'object') save = mergeSaves(save, migrate(remote));
+      storeSave(save);
+      if (machine !== 'active' && machine !== 'countdown') ui.refreshMetaScreens(save);
+      return save;
+    });
     platform.cloudLoad().then(async (remote) => {
-      const decoded = remote ? decodeSave(JSON.stringify(remote)) : null;
-      if (decoded) save = decoded; // remote wins conflicts
+      // Merge the cloud copy with this device's progress (best of each), never
+      // letting either side overwrite the other.
+      if (remote && typeof remote === 'object') save = mergeSaves(save, migrate(remote));
       // Platform settings KV wins over the save doc's preferences.
       const prefs = await platform.loadRemoteSettings();
       for (const [k, v] of Object.entries(prefs)) {

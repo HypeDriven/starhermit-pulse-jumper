@@ -62,6 +62,33 @@ export function migrate(payload) {
   return out;
 }
 
+/**
+ * Merge two saves (e.g. this device and the cloud copy written by another
+ * device) without losing progress on either side: the higher unlocked journey
+ * stage, the better score per journey stage and per daily date, and the union
+ * of finished lessons and achievements. Preferences stay `local`'s (the
+ * platform settings KV syncs them separately).
+ */
+export function mergeSaves(local, remote) {
+  const a = migrate(local);
+  const b = migrate(remote);
+  const best = (x, y) => {
+    const out = { ...x };
+    for (const [k, v] of Object.entries(y)) {
+      if (typeof v === 'number' && Number.isFinite(v) && !(out[k] >= v)) out[k] = v;
+    }
+    return out;
+  };
+  return {
+    ...a,
+    journeyUnlocked: Math.max(a.journeyUnlocked, b.journeyUnlocked),
+    journeyBest: best(a.journeyBest, b.journeyBest),
+    dailyBest: best(a.dailyBest, b.dailyBest),
+    tutorialDone: { ...b.tutorialDone, ...a.tutorialDone },
+    achievements: { ...b.achievements, ...a.achievements },
+  };
+}
+
 export function decodeSave(text) {
   let obj;
   try { obj = JSON.parse(text); } catch (_) { return null; }

@@ -123,7 +123,8 @@
   .settings-grid select { background:var(--panel2); color:var(--text); border:1px solid #3b5383;
     border-radius:6px; padding:8px; font-size:15px; min-height:44px; }
   .settings-grid input[type=checkbox] { width:24px; height:24px; }
-  .settings-grid select { max-width:58%; }
+  .settings-grid select { max-width:58%; min-width:0; flex-shrink:1; }
+  .settings-grid label > span:first-child { min-width:0; overflow-wrap:anywhere; hyphens:auto; }
   .settings-cols { display:flex; flex-wrap:wrap; gap:18px 48px; justify-content:center; align-items:flex-start; }
   #screen-settings .screen-core { max-width:min(100%,940px); }
   .gfx-section { padding-top:4px; }
@@ -170,6 +171,9 @@
 <script src="browser-guard.js"></script>
 <script src="starhermit-sdk.js"></script>
 <script>StarHermit.init();</script>
+<script src="sh-language.js"></script>
+<script src="src/strings.js"></script>
+<script src="src/i18n.js"></script>
 </head>
 <body>
 <div id="app">
@@ -180,7 +184,7 @@
     <div id="hud-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <div id="hud-progress-fill"></div>
     </div>
-    <span id="hud-form">PULSE</span>
+    <span id="hud-form" data-i18n-skip>PULSE</span>
     <button type="button" class="btn secondary" id="hud-pause" aria-label="Pause game">II</button>
     <div id="hud-objective"></div>
   </div>

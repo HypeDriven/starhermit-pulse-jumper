@@ -1,7 +1,9 @@
 'use strict';
 
-// Strings for the Graphics settings section. The rest of the game is English
-// only; this panel follows the browser language (navigator.language).
+// Strings for the Graphics settings section, in the nine locales. The panel
+// follows the game language (src/i18n.js via ../lang.js), like the rest of the UI.
+
+import { lang } from '../lang.js';
 
 const EN = {
   graphics: 'Graphics', quality: 'Quality', auto: 'Auto (detected: {tier})', renderScale: 'Render scale',
@@ -100,6 +102,5 @@ export function pickLocale(tag) {
 }
 
 export function gfxStrings(tag) {
-  const nav = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
-  return GFX_STRINGS[pickLocale(tag || nav)];
+  return GFX_STRINGS[pickLocale(tag || lang())];
 }

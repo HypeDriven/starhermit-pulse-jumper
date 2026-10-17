@@ -37,9 +37,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { journeyLevel, solveLevel } from '../src/core/levels.js';
 import { STEP_SECONDS } from '../src/core/constants.js';
+import { stubStarHermit, launchToken } from './starhermit-e2e.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOT = (stage, vp) => `/tmp/pulse-jumper-e2e-${stage}-${vp}.png`;
+// Screenshots go to $E2E_SHOT_DIR (default /tmp).
+const SHOT = (stage, vp) => path.join(process.env.E2E_SHOT_DIR || '/tmp', `pulse-jumper-e2e-${stage}-${vp}.png`);
 const STEP_MS = STEP_SECONDS * 1000; // 16.666… ms per simulation tick
 
 // benign GPU/swiftshader noise (mirrors tools/production_game_audit.mjs)
@@ -491,6 +493,108 @@ async function runGraphics(browser, name, ctxOpts) {
   console.log(`ok - ${name}: graphics pass, no console errors or warnings`);
 }
 
+// ---------- language pass (desktop + mobile, signed in via a stubbed API) ----------
+// Automatic follows the StarHermit preferred language (fr-CA); switching to
+// Italian mid-run in Settings re-renders the pause sheet, Settings and HUD
+// without ending the run and saves ui.language; Report a problem posts a bug.
+async function runLanguage(browser, name, ctxOpts) {
+  const errors = [];
+  const context = await browser.newContext(ctxOpts);
+  const page = await context.newPage();
+  const touch = !!ctxOpts.hasTouch;
+  const press = (sel) => (touch ? page.tap(sel) : page.click(sel));
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
+    const url = m.location()?.url || '';
+    if (/Failed to load resource/.test(m.text()) && /\/favicon|\/sfx\//.test(url)) return;
+    errors.push(`console ${m.type()}: ${m.text()}`);
+  });
+  const text = async (sel) => (await page.locator(sel).first().innerText()).trim();
+  try {
+    const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+    await page.goto('about:blank');
+    await page.goto(BASE + '/index.html#game_token=' + launchToken(), { waitUntil: 'load' });
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+    await page.waitForSelector('#play-btn', { state: 'visible', timeout: 15000 });
+    await page.waitForFunction(() => /JOUER/.test(document.getElementById('play-btn').textContent));
+    await page.screenshot({ path: SHOT('language-title', name) });
+    ok(`${name}: Automatic resolves to the account language (fr-CA); title in French`);
+
+    // Start a journey run in French, pause it, open Settings from the pause sheet.
+    await press('#play-btn');
+    await page.waitForSelector('#screen-modes', { state: 'visible' });
+    await page.locator('#screen-modes .card', { hasText: 'Voyage' }).locator('button').click();
+    await page.waitForSelector('#screen-journey', { state: 'visible' });
+    await page.locator('#screen-journey .level-grid button:not(.locked)').first().click();
+    await page.waitForSelector('#hud', { state: 'visible' });
+    if (await text('#hud-score-label') !== 'POINTAGE') throw new Error('HUD not in fr-CA: ' + await text('#hud-score-label'));
+    await press('#hud-pause');
+    await page.waitForSelector('#screen-pause', { state: 'visible' });
+    await page.locator('#screen-pause button', { hasText: 'Paramètres' }).click();
+    await page.waitForSelector('#screen-settings', { state: 'visible' });
+    const choice = page.locator('[data-game-language="choice"]');
+    await choice.scrollIntoViewIfNeeded();
+    const auto = await choice.locator('option').first().textContent();
+    if (!/^Automatique — Français \(Canada\)$/.test(auto)) throw new Error('Automatic label not resolved: ' + auto);
+    await choice.selectOption('it-IT');
+    await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+    await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]').textContent));
+    if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+    if (await text('#settings-heading') !== 'Impostazioni') throw new Error('settings title not re-rendered');
+    if (await text('#gfx-heading') !== 'Grafica') throw new Error('graphics heading not re-rendered');
+    await page.locator('#screen-settings').getByLabel('Movimento ridotto', { exact: true }).waitFor();
+    if (await choice.count() !== 1) throw new Error('expected exactly one language selector');
+    await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+    await page.fill('[data-game-report="title"]', 'Test report');
+    await page.click('[data-game-report="send"]');
+    await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+    if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+    await choice.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: SHOT('language', name) });
+    // The settings panel fits the viewport.
+    const vw = page.viewportSize().width;
+    for (const sel of ['#gfx-section', '[data-game-language="choice"]', '[data-game-report="send"]']) {
+      const b = await page.locator(sel).boundingBox();
+      if (!b || b.x < 0 || b.x + b.width > vw + 1) throw new Error(`${sel} cut off: ${JSON.stringify(b)}`);
+    }
+
+    // Back to the paused run: same run, Italian pause sheet and HUD.
+    await page.locator('#settings-back').scrollIntoViewIfNeeded();
+    await press('#settings-back');
+    await page.waitForSelector('#screen-pause', { state: 'visible' });
+    if (await text('#pause-heading') !== 'In pausa') throw new Error('pause sheet not re-rendered');
+    await press('#resume-btn');
+    await page.waitForFunction(() => document.getElementById('screen-pause').hidden === true);
+    if (await text('#hud-score-label') !== 'PUNTI') throw new Error('HUD label not re-rendered');
+    await page.waitForFunction(() => /faro/.test(document.getElementById('hud-objective').textContent));
+    await page.screenshot({ path: SHOT('language-hud', name) });
+    ok(`${name}: Italian chosen mid-run — Settings, pause sheet and HUD re-rendered, ui.language saved, report sent`);
+
+    // Back to Automatic → fr-CA, from the results or the pause sheet.
+    await page.waitForFunction(() => !document.getElementById('screen-results').hidden || document.body.classList.contains('playing'));
+    if (await page.evaluate(() => document.body.classList.contains('playing'))) {
+      await press('#hud-pause');
+      await page.waitForSelector('#screen-pause', { state: 'visible' });
+      await page.locator('#screen-pause button', { hasText: 'Impostazioni' }).click();
+    } else {
+      await page.locator('#screen-results button', { hasText: 'Titolo' }).click();
+      await page.locator('#screen-title button', { hasText: 'Impostazioni' }).click();
+    }
+    await page.waitForSelector('#screen-settings', { state: 'visible' });
+    await choice.scrollIntoViewIfNeeded();
+    await choice.selectOption('auto');
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+    if (calls.settings['ui.language']?.choice !== 'auto') throw new Error('ui.language auto not saved');
+    if (await text('#settings-heading') !== 'Paramètres') throw new Error('settings not back in French');
+    ok(`${name}: back to Automatic (fr-CA)`);
+  } finally {
+    await context.close();
+  }
+  if (errors.length) throw new Error(`${name} language pass had console output:\n  ${errors.join('\n  ')}`);
+  console.log(`ok - ${name}: language pass, no console errors or warnings`);
+}
+
 // ---------- main ----------
 let browser = null;
 try {
@@ -503,6 +607,8 @@ try {
   await runMobile(browser);
   await runGraphics(browser, 'gfx-desktop', { viewport: { width: 1280, height: 800 } });
   await runGraphics(browser, 'gfx-mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await runLanguage(browser, 'lang-desktop', { viewport: { width: 1280, height: 800 } });
+  await runLanguage(browser, 'lang-mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   if (ownServerCalls.length) throw new Error('standalone made own-server requests: ' + ownServerCalls.join(', '));
   console.log('ok - standalone load made zero same-origin /api or /ws requests');
   console.log('\nE2E PASS — pulse-jumper, desktop + mobile, no page errors');

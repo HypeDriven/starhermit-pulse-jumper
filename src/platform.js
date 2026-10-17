@@ -7,11 +7,15 @@
 // - Display names: profile nickname, "Player " + id prefix fallback (never
 //   /api/v1/me, never usernames).
 // - Cloud save: the save doc is mirrored to slot game:<slug> (debounced,
-//   flushed on pagehide; remote-preferred on load); localStorage stays the
-//   offline cache.
+//   flushed on pagehide); game.js merges the loaded copy with local progress.
+//   Writes after a load are conditional (ETag): when another device saved
+//   first the SDK emits 'saveconflict', and the slot is reloaded, merged
+//   (onConflict) and saved again. localStorage stays the offline cache.
 // - Settings KV mirror, keyboard bindings, invite link, sign-in.
 // - Hosted leaderboards are read-only (the game's first platform board).
 // Without a token the game stays local and never calls the StarHermit API.
+
+import { T } from './lang.js';
 
 /** The SDK instance (window.StarHermit; tests may inject one on globalThis). */
 function sdk() { return globalThis.StarHermit || null; }
@@ -47,7 +51,7 @@ export function onAuthChange(fn) {
 
 // ---- display names: nickname only ----
 export function fallbackName(userId) {
-  return 'Player ' + String(userId || 'unknown').slice(0, 6);
+  return T('Player {id}', { id: String(userId || 'unknown').slice(0, 6) });
 }
 export async function displayName(userId) {
   if (!isHosted() || !userId) return fallbackName(userId);
@@ -59,6 +63,21 @@ export function myDisplayName() { return displayName(getSub()); }
 // ---- cloud save ----
 let docProvider = null;
 export function cloudStart(provider) { docProvider = provider; }
+
+let conflictMerge = null;
+/** merge(remoteDoc) → merged doc, called when another device saved first. */
+export function onConflict(merge) { conflictMerge = merge; }
+{
+  const sh = sdk();
+  if (sh) {
+    sh.on('saveconflict', async () => {
+      setStatus('saving');
+      const remote = await sh.loadJSON();
+      const merged = conflictMerge ? conflictMerge(remote) : (docProvider && docProvider());
+      if (!sh.saveConflicted() && merged) sh.saveJSON(merged, 0);
+    });
+  }
+}
 
 /** The remote save doc (null when none / signed out). */
 export async function cloudLoad() {
