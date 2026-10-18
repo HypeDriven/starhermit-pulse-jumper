@@ -16,11 +16,11 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { FORM_NOVA, GROUND_Y, PLAYER_RADIUS } from '../core/constants.js';
-import { detectPreset, resolve, describe, SHADOW_MAP, PARTICLE_COUNT } from './gfx.js';
+import { detectLevel, presetForLevel, resolve, describe, particleCount, SHADOW_MAP, PARTICLE_MAX, TRAIL_MAX } from './gfx.js';
 
 const CAM_BACK = 6, CAM_UP = 4.2, CAM_SIDE = 8.5, LOOK_AHEAD = 7, LOOK_UP = 1.4;
-const MAX_PARTICLES = PARTICLE_COUNT.high;
-const TRAIL_LEN = 28;
+const MAX_PARTICLES = PARTICLE_MAX; // pool built at the largest budget; the preset draws particleCount of it
+const TRAIL_LEN = TRAIL_MAX; // built at the largest budget; the preset draws budget.trail points
 
 const THEME_PALETTES = {
   'neon-grid': { bg: 0x060913, fog: 0x0a1226, grid: 0x1c3a6e, ground: 0x0a1020, accent: 0x22d3ee, sun: 0xe879c6, sun2: 0xfde047 },
@@ -106,6 +106,7 @@ let reducedMotion = false;
 
 // Graphics state.
 let gpu = '';
+let gpuLevel = 4;
 let detected = 'balanced';
 let saved = {};
 let q = resolve({}, 'balanced');
@@ -159,6 +160,28 @@ function isMobile() {
   } catch (_) { return false; }
 }
 
+// Run a post pass at a fraction of the frame: EffectComposer.addPass/setSize hand every pass the full
+// frame size, so the pass's own setSize applies the budget's scale (half-res bloom/GTAO below Ultra).
+function atScale(pass, k) {
+  if (!(k < 1)) return pass;
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
+}
+
+// Surface shading per the preset's budget: Lambert on Low, Standard on Balanced, clear-coated Physical on
+// High/Ultra. Colour, emission and opacity (what the player reads) are the same on every model.
+function surface(p) {
+  const { roughness, metalness, clearcoat, clearcoatRoughness, envMapIntensity, ...base } = p;
+  const tier = q.budget.material;
+  if (tier === 'lambert') return new THREE.MeshLambertMaterial(base);
+  const pbr = { ...base, roughness: roughness ?? 1, metalness: metalness ?? 0 };
+  if (envMapIntensity !== undefined) pbr.envMapIntensity = envMapIntensity;
+  if (tier === 'standard' || !clearcoat) return new THREE.MeshStandardMaterial(pbr);
+  return new THREE.MeshPhysicalMaterial({ ...pbr, clearcoat, clearcoatRoughness: clearcoatRoughness ?? 0 });
+}
+const seg = (n, min = 3) => Math.max(min, Math.round(n * q.budget.seg));
+
 function makeSpriteTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -175,8 +198,7 @@ function makeSpriteTexture() {
 }
 
 // Deterministic value noise for the ground's roughness variation.
-function makeNoiseTexture() {
-  const n = 128;
+function makeNoiseTexture(n = 128) {
   const c = document.createElement('canvas');
   c.width = c.height = n;
   const g = c.getContext('2d');
@@ -203,11 +225,19 @@ export function mount(canvasRef) {
   renderer.toneMappingExposure = 1.1;
   renderer.shadowMap.type = THREE.PCFShadowMap; // soft filtering is built into PCF in r185
   gpu = readGpu(renderer.getContext());
-  detected = detectPreset(gpu, { mobile: isMobile() });
+  // StarHermit hardware level (gpu-level.js): renderer string + device facts (phone/tablet, cores, memory).
+  let sys = { mobile: isMobile(), webgl2: renderer.capabilities.isWebGL2 };
+  try {
+    const G = globalThis.StarHermitGpu;
+    if (G) { const d = G.detectSystem(); sys = { ...sys, mobile: sys.mobile || d.mobile, touch: d.touch, screen: d.screen, cores: d.cores, memoryGb: d.memoryGb, astc: d.astc }; }
+  } catch (_) { /* defaults */ }
+  gpuLevel = detectLevel(gpu, sys);
+  detected = presetForLevel(gpuLevel);
+  q = resolve(saved, detected, gpuLevel);
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(55, 16 / 9, 0.1, 400);
   spriteTex = makeSpriteTexture();
-  noiseTex = makeNoiseTexture();
+  noiseTex = makeNoiseTexture(q.budget.texture);
 
   ambient = new THREE.AmbientLight(0x334466, 0.35);
   scene.add(ambient);
@@ -222,7 +252,7 @@ export function mount(canvasRef) {
   keyLight.shadow.normalBias = 0.02;
   scene.add(keyLight, keyLight.target);
 
-  sky = new THREE.Mesh(new THREE.SphereGeometry(300, 32, 16), new THREE.ShaderMaterial({
+  sky = new THREE.Mesh(new THREE.SphereGeometry(300, seg(32, 12), seg(16, 8)), new THREE.ShaderMaterial({
     vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
     uniforms: {
       uTop: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uGlow: { value: new THREE.Color() },
@@ -236,14 +266,10 @@ export function mount(canvasRef) {
   scene.add(sky);
 
   // Player: glossy emissive sphere + gyro ring (form cues are color AND shape).
-  const geo = new THREE.SphereGeometry(PLAYER_RADIUS, 32, 24);
-  playerMesh = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({
-    color: 0x22d3ee, emissive: 0x22d3ee, emissiveIntensity: 0.8, roughness: 0.25, metalness: 0.1,
-    clearcoat: 1, clearcoatRoughness: 0.1,
-  }));
+  playerMesh = new THREE.Mesh(playerGeometry(), playerMaterial());
   playerMesh.castShadow = true;
   playerRing = new THREE.Mesh(
-    new THREE.TorusGeometry(PLAYER_RADIUS * 1.5, 0.06, 8, 48),
+    new THREE.TorusGeometry(PLAYER_RADIUS * 1.5, 0.06, seg(8, 4), seg(48, 16)),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
   playerRing.rotation.x = Math.PI / 2.5;
   playerMesh.add(playerRing);
@@ -273,6 +299,41 @@ export function mount(canvasRef) {
 
 // ---------------------------------------------------------------- graphics
 
+function playerGeometry() { return new THREE.SphereGeometry(PLAYER_RADIUS, seg(32, 12), seg(24, 8)); }
+function playerMaterial() {
+  return surface({ color: 0x22d3ee, emissive: 0x22d3ee, emissiveIntensity: 0.8, roughness: 0.25, metalness: 0.1,
+    clearcoat: 1, clearcoatRoughness: 0.1 });
+}
+
+// Swap the per-preset assets (shading model, segment counts, texture size) when the budget changes.
+function applyAssets(prev) {
+  const b = q.budget, pb = prev && prev.budget;
+  if (!pb || (pb.material === b.material && pb.seg === b.seg && pb.texture === b.texture)) return;
+  if (pb.texture !== b.texture && noiseTex) {
+    const repeat = noiseTex.repeat.clone();
+    noiseTex.dispose();
+    noiseTex = makeNoiseTexture(b.texture);
+    noiseTex.repeat.copy(repeat);
+  }
+  if (pb.seg !== b.seg && sky) { sky.geometry.dispose(); sky.geometry = new THREE.SphereGeometry(300, seg(32, 12), seg(16, 8)); }
+  if (playerMesh) {
+    const color = playerMesh.material.color.getHex(), emissive = playerMesh.material.emissive.getHex();
+    playerMesh.material.dispose(); playerMesh.material = playerMaterial();
+    playerMesh.material.color.setHex(color); playerMesh.material.emissive.setHex(emissive);
+    if (pb.seg !== b.seg) {
+      playerMesh.geometry.dispose(); playerMesh.geometry = playerGeometry();
+      playerRing.geometry.dispose(); playerRing.geometry = new THREE.TorusGeometry(PLAYER_RADIUS * 1.5, 0.06, seg(8, 4), seg(48, 16));
+    }
+  }
+  if (currentLevel && levelGroup) {
+    // Rebuild the course meshes with the new assets; collected gems stay collected.
+    const hidden = gemMeshes.map((m) => !m.visible), collected = lastGemsCollected;
+    loadLevel(currentLevel);
+    gemMeshes.forEach((m, i) => { if (hidden[i]) m.visible = false; });
+    lastGemsCollected = collected;
+  }
+}
+
 function ensureEnv() {
   if (envTex || !renderer) return envTex;
   try {
@@ -288,7 +349,8 @@ function ensureEnv() {
 /** Apply saved graphics settings ({ preset, render_scale, adaptive, show_fps, <cat> }). */
 export function setGraphics(next) {
   saved = next && typeof next === 'object' ? next : {};
-  q = resolve(saved, detected);
+  const prev = q;
+  q = resolve(saved, detected, gpuLevel);
   if (canvas) canvas.dataset.gfxPreset = q.preset;
   if (typeof document !== 'undefined') document.body.dataset.gfxPreset = q.preset;
   if (!renderer) return;
@@ -300,6 +362,7 @@ export function setGraphics(next) {
     keyLight.shadow.mapSize.set(mapSize, mapSize);
     if (keyLight.shadow.map) { keyLight.shadow.map.dispose(); keyLight.shadow.map = null; }
   }
+  applyAssets(prev);
   applyDetail();
   applyParticles();
   applyMotion();
@@ -321,8 +384,8 @@ function applyDetail() {
   if (detailGroup) detailGroup.visible = on;
   if (playerHalo) playerHalo.visible = on;
   if (sky) sky.material.uniforms.uDetail.value = on ? 1 : 0;
-  if (playerMesh) playerMesh.material.clearcoat = on ? 1 : 0;
-  if (groundPlane) {
+  if (playerMesh && 'clearcoat' in playerMesh.material) playerMesh.material.clearcoat = on ? 1 : 0;
+  if (groundPlane && 'roughness' in groundPlane.material) {
     const m = groundPlane.material;
     m.roughness = on ? 0.6 : 0.9;
     m.metalness = on ? 0.35 : 0;
@@ -338,7 +401,7 @@ function applyReflections() {
   const env = q.reflections === 'on' ? ensureEnv() : null;
   scene.environment = env;
   scene.environmentIntensity = 0.55;
-  if (groundPlane) {
+  if (groundPlane && 'envMapIntensity' in groundPlane.material) {
     groundPlane.material.envMap = env;
     groundPlane.material.envMapIntensity = 0.05;
     groundPlane.material.needsUpdate = true;
@@ -346,12 +409,15 @@ function applyReflections() {
 }
 
 function applyParticles() {
-  const n = PARTICLE_COUNT[q.particles] || 0;
+  const n = particleCount(q);
   if (particles) {
     particles.visible = n > 0;
     particles.geometry.setDrawRange(0, n);
   }
-  if (trail) trail.visible = q.particles === 'high';
+  if (trail) {
+    trail.visible = q.particles === 'high';
+    trail.geometry.setDrawRange(0, Math.min(TRAIL_LEN, q.budget.trail));
+  }
 }
 
 function applyMotion() {
@@ -376,7 +442,7 @@ export function graphicsInfo(t) {
   const ratio = targetRatio();
   const px = [Math.round(w * ratio), Math.round(h * ratio)];
   return {
-    gpu, detected, resolved: q, pixels: px,
+    gpu, level: gpuLevel, detected, resolved: q, pixels: px,
     summary: describe(q, px, t),
     fps: Math.round(fps || 0),
     adaptiveScale: Math.round(adaptiveScale * 100) / 100,
@@ -412,11 +478,11 @@ function buildPost(w, h) {
       ao.blendIntensity = 0.75;
       ao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.5, thickness: 1.5, scale: 1.0, samples: q.ao === 'high' ? 16 : 8 });
       ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: q.ao === 'high' ? 6 : 4, rings: 2, samples: q.ao === 'high' ? 16 : 8 });
-      c.addPass(ao);
+      c.addPass(atScale(ao, q.budget.aoRes));
     }
     if (q.bloom === 'on') {
       // High threshold: only emissive neon and bright highlights bloom.
-      c.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.7, 0.45, 0.86));
+      c.addPass(atScale(new UnrealBloomPass(new THREE.Vector2(w, h), 0.7, 0.45, 0.86), q.budget.bloomRes));
     }
     if (q.grade === 'on') c.addPass(new ShaderPass(GradeShader));
     c.addPass(new OutputPass());
@@ -468,7 +534,7 @@ function present() {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
-  const key = q.post && !postFailed ? [q.ao, q.bloom, q.grade, q.antialias, w, h, pixelRatio].join('|') : 'none';
+  const key = q.post && !postFailed ? [q.ao, q.bloom, q.grade, q.antialias, q.budget.bloomRes, q.budget.aoRes, w, h, pixelRatio].join('|') : 'none';
   if (key !== postKey) { postKey = key; buildPost(w, h); }
   if (composer) {
     try { (globalThis.GameOptions ? globalThis.GameOptions.draw(composer.renderer, () => composer.render(dt / 1000)) : composer.render(dt / 1000)); return; } catch (_) { postFailed = true; composer.dispose(); composer = null; postKey = null; }
@@ -536,7 +602,7 @@ export function loadLevel(level) {
 
   // Ground strip + grid.
   const L = level.length + 60;
-  const groundMat = new THREE.MeshStandardMaterial({ color: p.ground, roughness: 0.9, metalness: 0, envMapIntensity: 0.08 });
+  const groundMat = surface({ color: p.ground, roughness: 0.9, metalness: 0, envMapIntensity: 0.08 });
   groundPlane = new THREE.Mesh(new THREE.PlaneGeometry(L, 24), groundMat);
   groundPlane.rotation.x = -Math.PI / 2;
   groundPlane.position.set(level.length / 2, GROUND_Y, 0);
@@ -571,10 +637,10 @@ export function loadLevel(level) {
   detailGroup.add(tMesh, capMesh);
 
   // Obstacles: low = flat wide slab (jump), gate = tall arch (phase through).
-  const lowMat = new THREE.MeshPhysicalMaterial({
+  const lowMat = surface({
     color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.35, roughness: 0.35, metalness: 0.1,
     clearcoat: 0.8, clearcoatRoughness: 0.2 });
-  const gateMat = new THREE.MeshPhysicalMaterial({
+  const gateMat = surface({
     color: 0x8b5cf6, emissive: 0x8b5cf6, emissiveIntensity: 0.6,
     roughness: 0.3, clearcoat: 0.6, transparent: true, opacity: 0.85 });
   const capMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff7ed).multiplyScalar(0.8) });
@@ -595,7 +661,7 @@ export function loadLevel(level) {
     } else {
       const arch = new THREE.Group();
       for (const dz of [-1.6, 1.6]) {
-        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 6, 12), gateMat);
+        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 6, seg(12, 6)), gateMat);
         pillar.position.set(o.x, GROUND_Y + 3, dz);
         pillar.castShadow = true;
         arch.add(pillar);
@@ -605,7 +671,7 @@ export function loadLevel(level) {
       bar.castShadow = true;
       arch.add(bar);
       const swirl = new THREE.Mesh(
-        new THREE.TorusGeometry(1.1, 0.05, 8, 48),
+        new THREE.TorusGeometry(1.1, 0.05, seg(8, 4), seg(48, 16)),
         new THREE.MeshBasicMaterial({ color: new THREE.Color(0xd8b4fe).multiplyScalar(1.3), transparent: true, opacity: 0.85 }));
       swirl.position.set(o.x, GROUND_Y + 1.6, 0);
       swirl.rotation.y = Math.PI / 2;
@@ -621,7 +687,7 @@ export function loadLevel(level) {
   }
 
   // Gems: spinning, gently bobbing octahedrons.
-  const gemMat = new THREE.MeshPhysicalMaterial({
+  const gemMat = surface({
     color: 0xfde047, emissive: 0xfde047, emissiveIntensity: 0.9, roughness: 0.15, metalness: 0.2,
     clearcoat: 1, clearcoatRoughness: 0.05 });
   for (const g of level.gems) {
@@ -638,7 +704,7 @@ export function loadLevel(level) {
   // Checkpoints: vertical rings that pulse on the beat.
   for (const c of level.checkpoints) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(2.2, 0.07, 8, 64),
+      new THREE.TorusGeometry(2.2, 0.07, seg(8, 4), seg(64, 24)),
       new THREE.MeshBasicMaterial({ color: accent.clone().multiplyScalar(1.2), transparent: true, opacity: 0.6 }));
     ring.position.set(c, GROUND_Y + 2.4, 0);
     ring.rotation.y = Math.PI / 2;
@@ -652,7 +718,7 @@ export function loadLevel(level) {
     new THREE.MeshBasicMaterial({ color: new THREE.Color(0xffffff).multiplyScalar(1.6) }));
   fin.position.set(level.length, GROUND_Y + 5, 0);
   levelGroup.add(fin);
-  const finGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 10, 16, 1, true),
+  const finGlow = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 10, seg(16, 8), 1, true),
     new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false }));
   finGlow.position.copy(fin.position);
   finGlow.userData.noAO = true;
@@ -660,7 +726,7 @@ export function loadLevel(level) {
 
   // Timing-assist landing marker (visibility driven per frame in render()).
   assistMarker = new THREE.Mesh(
-    new THREE.RingGeometry(0.9, 1.35, 32),
+    new THREE.RingGeometry(0.9, 1.35, seg(32, 16)),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
   assistMarker.rotation.x = -Math.PI / 2;
   assistMarker.position.y = GROUND_Y + 0.02;
@@ -713,10 +779,10 @@ function updateTrail(px, py, nova) {
   if (trailPos.length > TRAIL_LEN * 2) trailPos.length = TRAIL_LEN * 2;
   const pa = trail.geometry.attributes.position, ca = trail.geometry.attributes.color;
   const c = new THREE.Color(nova ? 0xd946ef : 0x22d3ee);
-  const count = trailPos.length / 2;
-  for (let i = 0; i < TRAIL_LEN; i++) {
+  const count = trailPos.length / 2, len = Math.min(TRAIL_LEN, q.budget.trail);
+  for (let i = 0; i < len; i++) {
     const k = Math.min(i, count - 1);
-    const f = i < count ? (1 - i / TRAIL_LEN) ** 2 * 0.8 : 0;
+    const f = i < count ? (1 - i / len) ** 2 * 0.8 : 0;
     pa.setXYZ(i, trailPos[k * 2] - 0.05 * i, trailPos[k * 2 + 1], 0);
     ca.setXYZ(i, c.r * f, c.g * f, c.b * f);
   }

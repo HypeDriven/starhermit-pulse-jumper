@@ -463,6 +463,7 @@ async function runGraphics(browser, name, ctxOpts) {
     if (/bloom/.test(summary) || !/2048² shadows/.test(summary) || !/\d+×\d+ px/.test(summary)) {
       throw new Error('summary does not reflect High with bloom off: ' + summary);
     }
+    if (!/ · Level 0 · /.test(summary)) throw new Error('summary lacks the hardware level: ' + summary);
     await page.waitForSelector('#fps-meter', { state: 'attached' });
     await page.screenshot({ path: SHOT('gfx-panel', name) });
     ok(`${name}: High + bloom override applied (summary: ${summary.split(' · ').slice(-3).join(' · ')})`);

@@ -455,7 +455,7 @@ export function refreshGraphicsSummary() {
   const t = gfxStrings();
   const info = H.graphicsInfo((k) => t.sum[k]);
   if (!info) { n.textContent = ''; return; }
-  n.textContent = `${info.gpu || t.unknownGpu} · ${info.summary}`;
+  n.textContent = [info.gpu || t.unknownGpu, info.level != null ? t.level.replace('{n}', info.level) : null, info.summary].filter(Boolean).join(' · ');
   n.dataset.preset = info.resolved.preset;
   const note = $('gfx-post-note');
   if (note) note.hidden = !info.postFailed;

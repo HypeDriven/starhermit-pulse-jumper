@@ -8,7 +8,7 @@ import { lang } from '../lang.js';
 const EN = {
   graphics: 'Graphics', quality: 'Quality', auto: 'Auto (detected: {tier})', renderScale: 'Render scale',
   fromPreset: 'From preset ({tier})', adaptive: 'Adaptive resolution', showFps: 'Show frame rate',
-  postFailed: 'Post-processing is unavailable on this device, so effects are off.', unknownGpu: 'unknown GPU',
+  postFailed: 'Post-processing is unavailable on this device, so effects are off.', unknownGpu: 'unknown GPU', level: 'Level {n}',
   cat: { shadows: 'Shadows', ao: 'Ambient occlusion', bloom: 'Bloom', grade: 'Color grade', antialias: 'Anti-aliasing',
     reflections: 'Reflections', particles: 'Particles', background: 'Background', detail: 'Detail' },
   tier: { low: 'Low', balanced: 'Balanced', high: 'High', ultra: 'Ultra', off: 'Off', on: 'On', medium: 'Medium',
@@ -22,7 +22,7 @@ const GB = { ...EN, cat: { ...EN.cat, grade: 'Colour grade' } };
 const ES = {
   graphics: 'Gráficos', quality: 'Calidad', auto: 'Automática (detectada: {tier})', renderScale: 'Escala de renderizado',
   fromPreset: 'Del ajuste ({tier})', adaptive: 'Resolución adaptativa', showFps: 'Mostrar fotogramas por segundo',
-  postFailed: 'El posprocesado no está disponible en este dispositivo; los efectos están desactivados.', unknownGpu: 'GPU desconocida',
+  postFailed: 'El posprocesado no está disponible en este dispositivo; los efectos están desactivados.', unknownGpu: 'GPU desconocida', level: 'Nivel {n}',
   cat: { shadows: 'Sombras', ao: 'Oclusión ambiental', bloom: 'Resplandor', grade: 'Corrección de color', antialias: 'Antialiasing',
     reflections: 'Reflejos', particles: 'Partículas', background: 'Fondo', detail: 'Detalle' },
   tier: { low: 'Baja', balanced: 'Equilibrada', high: 'Alta', ultra: 'Ultra', off: 'No', on: 'Sí', medium: 'Media',
@@ -36,7 +36,7 @@ const ES419 = { ...ES, showFps: 'Mostrar cuadros por segundo', cat: { ...ES.cat,
 const DE = {
   graphics: 'Grafik', quality: 'Qualität', auto: 'Automatisch (erkannt: {tier})', renderScale: 'Renderskalierung',
   fromPreset: 'Wie Voreinstellung ({tier})', adaptive: 'Adaptive Auflösung', showFps: 'Bildrate anzeigen',
-  postFailed: 'Nachbearbeitung ist auf diesem Gerät nicht verfügbar, Effekte sind aus.', unknownGpu: 'unbekannte GPU',
+  postFailed: 'Nachbearbeitung ist auf diesem Gerät nicht verfügbar, Effekte sind aus.', unknownGpu: 'unbekannte GPU', level: 'Stufe {n}',
   cat: { shadows: 'Schatten', ao: 'Umgebungsverdeckung', bloom: 'Leuchteffekt', grade: 'Farbkorrektur', antialias: 'Kantenglättung',
     reflections: 'Spiegelungen', particles: 'Partikel', background: 'Hintergrund', detail: 'Details' },
   tier: { low: 'Niedrig', balanced: 'Ausgewogen', high: 'Hoch', ultra: 'Ultra', off: 'Aus', on: 'An', medium: 'Mittel',
@@ -48,7 +48,7 @@ const DE = {
 const FR = {
   graphics: 'Graphismes', quality: 'Qualité', auto: 'Auto (détecté : {tier})', renderScale: 'Échelle de rendu',
   fromPreset: 'Selon le préréglage ({tier})', adaptive: 'Résolution adaptative', showFps: 'Afficher les images par seconde',
-  postFailed: 'Le post-traitement est indisponible sur cet appareil : les effets sont désactivés.', unknownGpu: 'GPU inconnu',
+  postFailed: 'Le post-traitement est indisponible sur cet appareil : les effets sont désactivés.', unknownGpu: 'GPU inconnu', level: 'Niveau {n}',
   cat: { shadows: 'Ombres', ao: 'Occlusion ambiante', bloom: 'Halo lumineux', grade: 'Étalonnage des couleurs', antialias: 'Anticrénelage',
     reflections: 'Reflets', particles: 'Particules', background: 'Arrière-plan', detail: 'Détails' },
   tier: { low: 'Faible', balanced: 'Équilibrée', high: 'Élevée', ultra: 'Ultra', off: 'Non', on: 'Oui', medium: 'Moyennes',
@@ -62,7 +62,7 @@ const FRCA = { ...FR, showFps: 'Afficher la fréquence d’images', cat: { ...FR
 const PT = {
   graphics: 'Gráficos', quality: 'Qualidade', auto: 'Automática (detectada: {tier})', renderScale: 'Escala de renderização',
   fromPreset: 'Da predefinição ({tier})', adaptive: 'Resolução adaptativa', showFps: 'Mostrar taxa de quadros',
-  postFailed: 'O pós-processamento não está disponível neste dispositivo; os efeitos estão desligados.', unknownGpu: 'GPU desconhecida',
+  postFailed: 'O pós-processamento não está disponível neste dispositivo; os efeitos estão desligados.', unknownGpu: 'GPU desconhecida', level: 'Nível {n}',
   cat: { shadows: 'Sombras', ao: 'Oclusão ambiente', bloom: 'Brilho', grade: 'Correção de cor', antialias: 'Suavização de serrilhado',
     reflections: 'Reflexos', particles: 'Partículas', background: 'Fundo', detail: 'Detalhes' },
   tier: { low: 'Baixa', balanced: 'Equilibrada', high: 'Alta', ultra: 'Ultra', off: 'Desligado', on: 'Ligado', medium: 'Média',
@@ -74,7 +74,7 @@ const PT = {
 const IT = {
   graphics: 'Grafica', quality: 'Qualità', auto: 'Automatica (rilevata: {tier})', renderScale: 'Scala di rendering',
   fromPreset: 'Dal preset ({tier})', adaptive: 'Risoluzione adattiva', showFps: 'Mostra frequenza fotogrammi',
-  postFailed: 'La post-elaborazione non è disponibile su questo dispositivo: gli effetti sono disattivati.', unknownGpu: 'GPU sconosciuta',
+  postFailed: 'La post-elaborazione non è disponibile su questo dispositivo: gli effetti sono disattivati.', unknownGpu: 'GPU sconosciuta', level: 'Livello {n}',
   cat: { shadows: 'Ombre', ao: 'Occlusione ambientale', bloom: 'Bagliore', grade: 'Correzione colore', antialias: 'Antialiasing',
     reflections: 'Riflessi', particles: 'Particelle', background: 'Sfondo', detail: 'Dettagli' },
   tier: { low: 'Bassa', balanced: 'Bilanciata', high: 'Alta', ultra: 'Ultra', off: 'No', on: 'Sì', medium: 'Medie',
