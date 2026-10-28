@@ -1,21 +1,19 @@
 {
   "name": "pulse-jumper",
   "version": "1.0.0",
-  "description": "Pulse Jumper — a one-button rhythm platformer in a neon geometric world.",
-  "main": "server.js",
+  "private": true,
   "type": "module",
+  "description": "Pulse Jumper — a one-button rhythm platformer in a neon geometric world, on the StarHermit engine.",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test tests/*.test.js",
-    "test:e2e": "node tests/e2e.mjs"
+    "test": "npm run test:unit && npm run test:native",
+    "test:unit": "node --test tests/*.test.js",
+    "test:native": "node tests/native.mjs",
+    "test:browser": "node tools/browser-play.mjs .",
+    "package": "node tools/package-web.mjs",
+    "css": "node tools/css.mjs",
+    "plays": "node tools/gen-plays.mjs"
   },
-  "keywords": [],
-  "author": "",
   "license": "PolyForm-Noncommercial-1.0.0",
-  "dependencies": {
-    "express": "^5.1.0",
-    "three": "^0.185.1"
-  },
   "devDependencies": {
     "playwright-core": "^1.63.0"
   }

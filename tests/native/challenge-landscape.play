@@ -1,0 +1,55 @@
+# The Speed Target challenge in a phone held sideways (DPR 3), played by the content's solver with taps on the course
+# (tools/gen-plays.mjs; generated: do not edit): 1125 points in 18.8 s, under the 20 s target;
+# then Retry, the pause button, Restart run and Leave to title.
+# viewport 844x390@3
+until 300 Pulse Jumper
+frames 30
+save title
+touch =▶ PLAY
+until 60 Choose a mode
+frames 10
+save modes
+swipe 50% 85% 50% 15% 12
+frames 30
+touch Play — Challenge
+until 60 Speed Target
+frames 10
+save challenges
+touch Play — Speed Target
+frames 212
+touch 80% 60%
+frames 128
+touch 80% 60%
+frames 84
+touch 20% 60%
+frames 116
+touch 80% 60%
+frames 121
+touch 80% 60%
+frames 102
+touch 80% 60%
+frames 94
+touch 80% 60%
+frames 301
+touch 80% 60%
+until 900 STAGE CLEAR
+frames 20
+expect =1125
+expect =Time 18.8s · 7 jumps · 1 form changes
+save results
+touch =Retry
+frames 190
+save run
+touch =Pause game
+until 60 Leave to title
+frames 10
+save paused
+touch =Restart run
+frames 190
+touch =Pause game
+until 60 Leave to title
+frames 10
+touch =Leave to title
+until 60 Progress
+frames 10
+save title-after

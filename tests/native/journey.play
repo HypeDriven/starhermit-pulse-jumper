@@ -1,0 +1,44 @@
+# Journey stages 1 and 2 played to the beacon by the content's solver (tools/gen-plays.mjs; generated: do not edit):
+# stage 1 by keys (800 points), Next stage, stage 2 (800 points); the grid then shows stage 3 unlocked.
+until 300 Pulse Jumper
+frames 30
+save title
+click =Journey
+until 60 mastery trials
+frames 10
+save journey-grid
+click =Stage 1, Not cleared yet
+frames 247
+key Space 1
+frames 106
+key Space 1
+frames 136
+key Space 1
+frames 184
+key Space 1
+until 900 STAGE CLEAR
+frames 20
+expect =800
+expect =Time 15.5s · 4 jumps · 0 form changes
+save stage-1
+click =Next stage
+frames 246
+key Space 1
+frames 146
+key Space 1
+frames 175
+key Space 1
+frames 205
+key Space 1
+frames 134
+key Space 1
+until 900 STAGE CLEAR
+frames 20
+expect =800
+expect =Time 15.8s · 5 jumps · 0 form changes
+save stage-2
+click =Title
+until 60 Progress
+frames 10
+expect Journey stage 3 of 40 unlocked.
+save title-after

@@ -1,0 +1,137 @@
+/* Pulse Jumper — the browser build's index.html <style> rewritten class-based
+   for the engine's UI (`npm run css` converts it into assets/ui-style.json).
+   Element selectors, ids, attribute selectors and @media do not convert:
+   every widget names its classes and the breakpoints are layouts picked in
+   native/screens.ts (wide rails from 1024 px, short landscape up to 500 px
+   tall). High contrast (the old body.high-contrast palette), larger text and
+   reduced motion are the runtime's options; native/style.ts swaps the tokens. */
+
+:root {
+  --bg: #060913;
+  --panel: #0d1526f2;
+  --panel2: #131f38;
+  --text: #e8f6ff;
+  --accent: #22d3ee;
+  --accent2: #e879c6;
+  --gold: #fde047;
+  --danger: #fb7185;
+  --edge: #2c4066;
+  --rule: #3b5383;
+  --ink: #04121a;
+}
+
+* { box-sizing: border-box; }
+
+/* ------------------------------------------------------------- screens */
+.screen { background: var(--panel); border-radius: 0; }
+.title-wash { background: radial-gradient(ellipse at 50% 50%, #060913e6 0%, #060913b8 55%, #0609137a 100%); border-radius: 0; }
+.title-main { color: #ffffff; font-size: 60px; font-weight: 800; letter-spacing: 3.6px; text-shadow: 0 0 22px var(--accent), 0 0 32px #22d3ee55; }
+.title-small { color: #ffffff; font-size: 34px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 0 22px var(--accent), 0 0 32px #22d3ee55; }
+.subtitle { color: #e8f6ffd9; font-size: 18px; }
+.subtitle-small { color: #e8f6ffd9; font-size: 15px; }
+.screen-title { color: #ffffff; font-size: 36px; font-weight: 700; letter-spacing: 1.4px; }
+.screen-title-small { color: #ffffff; font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+.results-title { color: #ffffff; font-size: 48px; font-weight: 800; }
+.results-title-small { color: #ffffff; font-size: 30px; font-weight: 800; }
+.rail-heading { color: var(--text); font-size: 18px; font-weight: 700; }
+.rail-text { color: var(--text); font-size: 15px; }
+.best-line { color: #e8f6ffd9; font-size: 17px; }
+.profile-line { color: var(--accent); font-size: 16px; font-weight: 700; }
+.board-heading { color: var(--accent); font-size: 16px; font-weight: 700; }
+.board-line { color: var(--text); font-size: 16px; font-variant-numeric: tabular-nums; }
+.countdown { color: #ffffff; font-size: 60px; font-weight: 800; letter-spacing: 3.6px; text-shadow: 0 0 22px var(--accent), 0 0 32px #22d3ee55; }
+
+/* ------------------------------------------------------------- buttons */
+.btn {
+  min-height: 44px; min-width: 44px; padding: 10px 22px; border-radius: 10px; border: 2px solid transparent;
+  background: var(--accent); color: var(--ink); font-size: 19px; font-weight: 700; letter-spacing: 0.6px; text-align: center;
+  box-shadow: 0 4px 18px #22d3ee44;
+}
+.btn:hover { background: #3ee0f5; }
+.btn:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+.btn-primary {
+  min-height: 44px; padding: 14px 48px; border-radius: 10px; border: 2px solid transparent;
+  background: var(--accent); color: var(--ink); font-size: 26px; font-weight: 700; letter-spacing: 0.8px; text-align: center;
+  box-shadow: 0 4px 18px #22d3ee44;
+}
+.btn-primary:hover { background: #3ee0f5; }
+.btn-primary:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+.btn-secondary {
+  min-height: 44px; min-width: 44px; padding: 10px 22px; border-radius: 10px; border: 2px solid var(--edge);
+  background: var(--panel2); color: var(--text); font-size: 19px; font-weight: 700; letter-spacing: 0.6px; text-align: center;
+}
+.btn-secondary:hover { background: #1a2a4a; }
+.btn-secondary:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+.btn-danger {
+  min-height: 44px; min-width: 44px; padding: 10px 22px; border-radius: 10px; border: 2px solid transparent;
+  background: var(--danger); color: #1a0409; font-size: 19px; font-weight: 700; letter-spacing: 0.6px; text-align: center;
+}
+.btn-danger:hover { background: #fc8b9b; }
+.btn-danger:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+
+/* ------------------------------------------------------------- journey grid */
+.stage {
+  min-height: 40px; padding: 8px 0; border-radius: 10px; border: 2px solid var(--edge);
+  background: var(--panel2); color: var(--text); font-size: 16px; font-weight: 700; text-align: center;
+}
+.stage:hover { background: #1a2a4a; }
+.stage:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+.stage-mastery {
+  min-height: 40px; padding: 8px 0; border-radius: 10px; border: 2px solid var(--gold);
+  background: var(--panel2); color: var(--text); font-size: 16px; font-weight: 700; text-align: center;
+}
+.stage-mastery:hover { background: #1a2a4a; }
+.stage-mastery:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+.stage-locked {
+  min-height: 40px; padding: 8px 0; border-radius: 10px; border: 2px solid transparent;
+  background: #1a2438; color: #5a6b8c; font-size: 16px; font-weight: 700; text-align: center;
+}
+.stage-locked-mastery {
+  min-height: 40px; padding: 8px 0; border-radius: 10px; border: 2px solid var(--gold);
+  background: #1a2438; color: #5a6b8c; font-size: 16px; font-weight: 700; text-align: center;
+}
+
+/* ------------------------------------------------------------- cards */
+.card { background: var(--panel2); border: 1px solid var(--edge); border-radius: 12px; padding: 14px 18px; }
+.card-heading { color: var(--accent); font-size: 16px; font-weight: 700; }
+.card-text { color: #e8f6ffe6; font-size: 14px; }
+.kbd { background: #0a1322; border: 1px solid var(--rule); border-radius: 5px; padding: 1px 7px; }
+.kbd-text { color: var(--text); font-size: 13px; }
+
+/* ------------------------------------------------------------- results table */
+.tr { padding: 4px 16px; border-radius: 0; }
+.tr-total { border-top: 2px solid var(--rule); padding: 4px 16px; border-radius: 0; }
+.td { color: var(--text); font-size: 18px; }
+.td-total { color: #ffffff; font-size: 18px; font-weight: 800; }
+
+/* ------------------------------------------------------------- settings */
+.setting-label { color: var(--text); font-size: 16px; }
+.settings-heading { color: var(--accent); font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+
+/* ------------------------------------------------------------- HUD */
+.hud-label { color: #e8f6ffb3; font-size: 13px; letter-spacing: 1.4px; }
+.hud-score { color: var(--text); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hud-form { border: 2px solid var(--accent); border-radius: 6px; padding: 2px 10px; }
+.hud-form-text { color: var(--accent); font-size: 17px; font-weight: 800; letter-spacing: 1px; }
+.hud-form-nova { border: 2px solid var(--accent2); border-radius: 6px; padding: 2px 10px; }
+.hud-form-nova-text { color: var(--accent2); font-size: 17px; font-weight: 800; letter-spacing: 1px; }
+.hud-objective { color: #e8f6ffd9; font-size: 15px; }
+.icon-btn {
+  min-height: 44px; min-width: 44px; padding: 4px 14px; border-radius: 10px; border: 2px solid var(--edge);
+  background: var(--panel2); color: var(--text); font-size: 18px; font-weight: 700; text-align: center;
+}
+.icon-btn:hover { background: #1a2a4a; }
+.icon-btn:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+.touch-jump {
+  min-height: 72px; padding: 8px 6px; border-radius: 16px; border: 2px solid transparent;
+  background: #22d3eeeb; color: var(--ink); font-size: 18px; font-weight: 700; text-align: center; box-shadow: 0 4px 18px #22d3ee44;
+}
+.touch-jump:active { background: #7ce9f7; }
+.touch-form {
+  min-height: 72px; padding: 8px 6px; border-radius: 16px; border: 2px solid var(--edge);
+  background: #131f38eb; color: var(--text); font-size: 18px; font-weight: 700; text-align: center;
+}
+.touch-form:active { background: #24365c; }
+.touch-big { font-size: 18px; font-weight: 700; }
+.touch-small { font-size: 11px; font-weight: 700; }
+.note { color: var(--accent); font-size: 16px; font-weight: 700; }

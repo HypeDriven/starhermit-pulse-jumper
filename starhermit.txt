@@ -1,9 +1,32 @@
 name=Pulse Jumper
 description=Time jumps and form changes to cross a neon obstacle course synchronized to music.
-launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=score-script.js
 cover=cover.jpg
+
+# StarHermit engine script game: one package, played natively by the
+# StarHermit client and in browsers by the engine's web runtime. Browsers open
+# launch=index.html, the loader `npm run package` writes (it pins the engine
+# on wiki.starhermit.com by hash; never edit it). Re-run `npm run package`
+# after every change and commit index.html + starhermit-files.json.
+launch=index.html
+engine.api=1
+engine.entry=native/main.ts
+engine.version=1.19.3
+engine.minor=20
+engine.capabilities=platform,storage,clipboard
+
+# Keyboard controls (players rebind keys and pads in the runtime's Options).
+# Touch screens tap the course (right half jumps, left half changes form;
+# mirrored for the left-handed) or the JUMP / FORM buttons.
 control.jump=Space+ArrowUp+KeyW | Jump
 control.form=KeyF+ArrowDown+KeyS | Change form
 control.pause=Escape+KeyP | Pause / resume
+engine.group.jump=Running
+engine.group.pause=Run
+
+# Gamepad defaults: A or the D-pad up jumps, B / X or the D-pad down changes
+# form, Start pauses.
+engine.gamepad.jump=South+DpadUp+LeftStickUp
+engine.gamepad.form=East+West+DpadDown+LeftStickDown
+engine.gamepad.pause=Start

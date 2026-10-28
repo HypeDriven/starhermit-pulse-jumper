@@ -1,0 +1,64 @@
+# Menus on a desktop window (tools/gen-plays.mjs; generated: do not edit): How to play with the effective keys, Settings
+# turning the timing assist on, Practice 2 left to wipe out twice (the second costs the 10-point attempt penalty), pause
+# by Escape and Resume, then Practice 2 played to the beacon by the solver (955 points after two failed attempts).
+until 300 Pulse Jumper
+frames 30
+click =Help
+until 60 How to play
+frames 10
+expect Press Space, ↑ or W
+save help
+click =Back
+until 60 Progress
+frames 10
+click =Settings
+until 60 Open Options
+frames 10
+click =Timing assist (landing marker)
+frames 10
+save settings
+click =Back
+until 60 Progress
+frames 10
+click =▶ PLAY
+until 60 Choose a mode
+frames 10
+save modes
+click Play — Practice
+until 60 Select a difficulty
+frames 10
+click =2
+frames 100
+key Escape 1
+until 60 Leave to title
+frames 10
+save paused
+click =Resume
+frames 160
+save run-assist
+until 900 WIPED OUT
+frames 20
+expect =Attempt penalty
+save wiped-1
+click =Retry
+frames 5
+until 900 WIPED OUT
+frames 20
+expect =-10
+save wiped-2
+click =Retry
+frames 239
+key Space 1
+frames 121
+key KeyF 1
+frames 202
+key Space 1
+frames 271
+key Space 1
+until 900 STAGE CLEAR
+frames 20
+expect =955
+save cleared
+click =Title
+until 60 Progress
+frames 10

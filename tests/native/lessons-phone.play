@@ -1,0 +1,43 @@
+# The three Learn lessons on a portrait phone (DPR 3), played by the content's solver with a finger (tools/gen-plays.mjs;
+# generated: do not edit): jumps tap the right half of the course, form changes press the FORM button; Next stage leads
+# from lesson to lesson, and the title then counts the lessons and the Tutorial Graduate achievement.
+# viewport 390x844@3
+until 300 Pulse Jumper
+frames 30
+save title
+touch =Learn
+frames 305
+touch 75% 45%
+frames 147
+touch 75% 45%
+until 900 STAGE CLEAR
+frames 20
+expect =650
+expect =Time 8.8s · 2 jumps · 0 form changes
+save lesson-1
+touch =Next stage
+frames 329
+touch =Form (F or left tap)
+until 900 STAGE CLEAR
+frames 20
+expect =650
+expect =Time 10.0s · 0 jumps · 1 form changes
+save lesson-2
+touch =Next stage
+frames 289
+touch 75% 45%
+frames 150
+touch =Form (F or left tap)
+frames 177
+touch 75% 45%
+until 900 STAGE CLEAR
+frames 20
+expect =725
+expect =Time 12.2s · 2 jumps · 1 form changes
+save lesson-3
+touch =Title
+until 60 Progress
+frames 10
+expect Lessons completed: 3/3.
+expect Achievements unlocked: 1.
+save title-after

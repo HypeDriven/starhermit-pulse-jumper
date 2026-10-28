@@ -1,8 +1,6 @@
 // Pulse Jumper — strings for the StarHermit account controls (sign-in, invite,
-// sign-out notice), in the nine supported locales. Follows the game language
-// (src/i18n.js via ./lang.js).
-
-import { lang } from "./lang.js";
+// sign-out notice, leaderboard line), in the nine supported locales. Follows
+// the game language (native/i18n.ts).
 
 const EN_US = {
   signIn: "Sign in with StarHermit",
@@ -123,9 +121,4 @@ export function pickPlatformLocale(tags) {
 
 export function platformStrings(locale) {
   return STRINGS[locale] || EN_US;
-}
-
-/** Strings for the game language (or an explicit locale). */
-export function currentPlatformStrings(locale) {
-  return platformStrings(pickPlatformLocale(locale || lang()));
 }

@@ -2,30 +2,23 @@
  * Each row: [English key, es-419, de-DE, fr-FR, pt-BR, it-IT]. en-GB, es-ES and
  * fr-CA list only where they differ from en-US, es-419 and fr-FR.
  * "Pulse Jumper", "StarHermit" and the two forms PULSE and NOVA are names and
- * stay as they are. The Graphics strings live in src/ui/gfx-i18n.js and the
- * account strings in src/platform-i18n.js; both follow the same game language.
+ * stay as they are. The account strings live in src/platform-i18n.js. The
+ * engine loads this classic script (native/i18n.ts); tests/i18n.test.js checks
+ * that every key the client draws is here and no row is unused.
  */
 (function (root) {
   'use strict';
   var ROWS = [
-    // ---- static markup: HUD, touch tray, WebGL fallback
+    // ---- HUD and touch buttons
     ['SCORE', 'PUNTOS', 'PUNKTE', 'SCORE', 'PONTOS', 'PUNTI'],
     ['Level progress', 'Progreso del nivel', 'Levelfortschritt', 'Progression du niveau', 'Progresso da fase', 'Avanzamento del livello'],
     ['Pause game', 'Pausar el juego', 'Spiel pausieren', 'Mettre le jeu en pause', 'Pausar o jogo', 'Metti in pausa'],
-    ['II', 'II', 'II', 'II', 'II', 'II'],
     ['Form (F or left tap)', 'Forma (F o toque a la izquierda)', 'Form (F oder links tippen)', 'Forme (F ou toucher à gauche)', 'Forma (F ou toque à esquerda)', 'Forma (F o tocco a sinistra)'],
     ['FORM', 'FORMA', 'FORM', 'FORME', 'FORMA', 'FORMA'],
     ['left tap', 'toque izq.', 'links tippen', 'toucher à g.', 'toque à esq.', 'tocco a sin.'],
     ['Jump (Space or right tap)', 'Saltar (Espacio o toque a la derecha)', 'Springen (Leertaste oder rechts tippen)', 'Sauter (Espace ou toucher à droite)', 'Pular (Espaço ou toque à direita)', 'Salta (Spazio o tocco a destra)'],
     ['JUMP', 'SALTAR', 'SPRUNG', 'SAUTER', 'PULAR', 'SALTA'],
     ['right tap', 'toque der.', 'rechts tippen', 'toucher à d.', 'toque à dir.', 'tocco a des.'],
-    ['3D unavailable', '3D no disponible', '3D nicht verfügbar', '3D indisponible', '3D indisponível', '3D non disponibile'],
-    ['Pulse Jumper needs WebGL to render its neon world, and your browser could not provide it. Your settings and progress are safely stored locally. Try a recent version of Chrome, Firefox, Edge or Safari with hardware acceleration enabled.',
-      'Pulse Jumper necesita WebGL para mostrar su mundo de neón y tu navegador no pudo ofrecerlo. Tus ajustes y tu progreso están guardados en este dispositivo. Prueba una versión reciente de Chrome, Firefox, Edge o Safari con la aceleración por hardware activada.',
-      'Pulse Jumper braucht WebGL für seine Neonwelt, und dein Browser konnte es nicht bereitstellen. Deine Einstellungen und dein Fortschritt sind lokal sicher gespeichert. Versuche eine aktuelle Version von Chrome, Firefox, Edge oder Safari mit aktivierter Hardwarebeschleunigung.',
-      'Pulse Jumper a besoin de WebGL pour afficher son monde néon, et votre navigateur n’a pas pu le fournir. Vos réglages et votre progression sont enregistrés sur cet appareil. Essayez une version récente de Chrome, Firefox, Edge ou Safari avec l’accélération matérielle activée.',
-      'Pulse Jumper precisa de WebGL para mostrar seu mundo neon, e seu navegador não conseguiu fornecê-lo. Suas configurações e seu progresso estão salvos neste dispositivo. Tente uma versão recente do Chrome, Firefox, Edge ou Safari com a aceleração de hardware ativada.',
-      'Pulse Jumper ha bisogno di WebGL per mostrare il suo mondo al neon e il tuo browser non è riuscito a fornirlo. Impostazioni e progressi sono salvati in sicurezza su questo dispositivo. Prova una versione recente di Chrome, Firefox, Edge o Safari con l’accelerazione hardware attiva.'],
 
     // ---- title
     ['A one-button rhythm platformer in a neon world. Jump the slabs, phase the gates, ride the pulse.',
@@ -45,7 +38,6 @@
     ['Lessons completed: {n}/3.', 'Lecciones completadas: {n}/3.', 'Abgeschlossene Lektionen: {n}/3.', 'Leçons terminées : {n}/3.', 'Lições concluídas: {n}/3.', 'Lezioni completate: {n}/3.'],
     ['Achievements unlocked: {n}.', 'Logros desbloqueados: {n}.', 'Freigeschaltete Erfolge: {n}.', 'Succès débloqués : {n}.', 'Conquistas desbloqueadas: {n}.', 'Obiettivi sbloccati: {n}.'],
     ['Today', 'Hoy', 'Heute', 'Aujourd’hui', 'Hoje', 'Oggi'],
-    ['Daily challenge: one shared seed per UTC day.', 'Desafío diario: una semilla compartida por día UTC.', 'Tägliche Herausforderung: ein gemeinsamer Seed pro UTC-Tag.', 'Défi du jour : une graine commune par jour UTC.', 'Desafio diário: uma semente compartilhada por dia UTC.', 'Sfida giornaliera: un seme condiviso per giorno UTC.'],
     ['Daily challenge for {date} — seed {seed}. Ranked.', 'Desafío diario del {date}: semilla {seed}. Clasificatorio.', 'Tägliche Herausforderung für {date} – Seed {seed}. Gewertet.', 'Défi du jour du {date} — graine {seed}. Classé.', 'Desafio diário de {date} — semente {seed}. Ranqueado.', 'Sfida giornaliera del {date} — seme {seed}. Classificata.'],
     ['Daily challenge: local UTC day, unranked.', 'Desafío diario: día UTC local, sin clasificación.', 'Tägliche Herausforderung: lokaler UTC-Tag, ungewertet.', 'Défi du jour : jour UTC local, non classé.', 'Desafio diário: dia UTC local, sem ranking.', 'Sfida giornaliera: giorno UTC locale, non classificata.'],
     ['Playing as {name}', 'Jugando como {name}', 'Du spielst als {name}', 'Vous jouez en tant que {name}', 'Jogando como {name}', 'Giochi come {name}'],
@@ -65,7 +57,8 @@
     ['Challenge', 'Desafío', 'Herausforderung', 'Défi', 'Desafio', 'Sfida'],
     ['Constrained variants: a move-limit course and a speed course. Unranked.', 'Variantes con restricciones: un recorrido con límite de acciones y uno de velocidad. Sin clasificación.', 'Varianten mit Vorgaben: eine Strecke mit Aktionslimit und eine Tempostrecke. Ungewertet.', 'Variantes contraintes : un parcours à actions limitées et un parcours de vitesse. Non classé.', 'Variantes com restrições: um percurso com limite de ações e um de velocidade. Sem ranking.', 'Varianti vincolate: un percorso con limite di azioni e uno di velocità. Non classificate.'],
     ['Back', 'Volver', 'Zurück', 'Retour', 'Voltar', 'Indietro'],
-    ['Journey stages', 'Etapas de la travesía', 'Reiseetappen', 'Étapes du voyage', 'Etapas da jornada', 'Tappe del viaggio'],
+    ['Stage {n}', 'Etapa {n}', 'Etappe {n}', 'Étape {n}', 'Etapa {n}', 'Tappa {n}'],
+    ['mastery trial', 'prueba de maestría', 'Meisterprüfung', 'épreuve de maîtrise', 'prova de maestria', 'prova di maestria'],
     ['Locked', 'Bloqueada', 'Gesperrt', 'Verrouillée', 'Bloqueada', 'Bloccata'],
     ['Best: {n}', 'Mejor: {n}', 'Bestwert: {n}', 'Record : {n}', 'Melhor: {n}', 'Record: {n}'],
     ['Not cleared yet', 'Aún sin superar', 'Noch nicht geschafft', 'Pas encore réussie', 'Ainda não concluída', 'Non ancora superata'],
@@ -136,14 +129,15 @@
     ['Space', 'Espacio', 'Leertaste', 'Espace', 'Espaço', 'Spazio'],
 
     // ---- settings
-    ['Music volume', 'Volumen de la música', 'Musiklautstärke', 'Volume de la musique', 'Volume da música', 'Volume della musica'],
-    ['Effects volume', 'Volumen de efectos', 'Effektlautstärke', 'Volume des effets', 'Volume dos efeitos', 'Volume degli effetti'],
-    ['Mute all audio', 'Silenciar todo el audio', 'Gesamten Ton stummschalten', 'Couper tout le son', 'Silenciar todo o áudio', 'Disattiva tutto l’audio'],
-    ['Reduced motion', 'Movimiento reducido', 'Weniger Bewegung', 'Animations réduites', 'Movimento reduzido', 'Movimento ridotto'],
-    ['High contrast', 'Alto contraste', 'Hoher Kontrast', 'Contraste élevé', 'Alto contraste', 'Contrasto elevato'],
-    ['Larger text', 'Texto más grande', 'Größere Schrift', 'Texte plus grand', 'Texto maior', 'Testo più grande'],
     ['Left-handed touch controls', 'Controles táctiles para zurdos', 'Touch-Steuerung für Linkshänder', 'Commandes tactiles pour gauchers', 'Controles de toque para canhotos', 'Comandi touch per mancini'],
-    ['Timing assist (landing marker)', 'Ayuda de ritmo (marca de aterrizaje)', 'Timing-Hilfe (Landemarkierung)', 'Aide au timing (repère d’atterrissage)', 'Assistência de ritmo (marca de pouso)', 'Aiuto tempismo (segno di atterraggio)']
+    ['Timing assist (landing marker)', 'Ayuda de ritmo (marca de aterrizaje)', 'Timing-Hilfe (Landemarkierung)', 'Aide au timing (repère d’atterrissage)', 'Assistência de ritmo (marca de pouso)', 'Aiuto tempismo (segno di atterraggio)'],
+    ['Open Options', 'Abrir Opciones', 'Optionen öffnen', 'Ouvrir les options', 'Abrir Opções', 'Apri Opzioni'],
+    ['Sound, graphics, language, reduced motion, high contrast and larger text are in the StarHermit Options.',
+      'El sonido, los gráficos, el idioma, el movimiento reducido, el alto contraste y el texto más grande están en las Opciones de StarHermit.',
+      'Ton, Grafik, Sprache, weniger Bewegung, hoher Kontrast und größere Schrift findest du in den StarHermit-Optionen.',
+      'Le son, les graphismes, la langue, les animations réduites, le contraste élevé et le texte plus grand se trouvent dans les options StarHermit.',
+      'Som, gráficos, idioma, movimento reduzido, alto contraste e texto maior ficam nas Opções do StarHermit.',
+      'Audio, grafica, lingua, movimento ridotto, contrasto elevato e testo più grande sono nelle Opzioni di StarHermit.']
   ];
 
   var COLS = ['es-419', 'de-DE', 'fr-FR', 'pt-BR', 'it-IT'];
@@ -155,9 +149,7 @@
   T['en-GB'] = {};
   // es-ES: Spain Spanish wording.
   T['es-ES'] = {
-    'Settings': 'Ajustes',
-    'Pulse Jumper needs WebGL to render its neon world, and your browser could not provide it. Your settings and progress are safely stored locally. Try a recent version of Chrome, Firefox, Edge or Safari with hardware acceleration enabled.':
-      'Pulse Jumper necesita WebGL para mostrar su mundo de neón y tu navegador no ha podido ofrecerlo. Tus ajustes y tu progreso están guardados en este dispositivo. Prueba una versión reciente de Chrome, Firefox, Edge o Safari con la aceleración por hardware activada.'
+    'Settings': 'Ajustes'
   };
   // fr-CA: Canadian French (pointage for score).
   T['fr-CA'] = {
@@ -169,4 +161,4 @@
   };
 
   root.PJ_STRINGS = T;
-})(typeof self !== 'undefined' ? self : this);
+})(globalThis);
