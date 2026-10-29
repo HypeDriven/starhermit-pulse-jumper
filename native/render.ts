@@ -11,13 +11,13 @@
 // its motion trail, the chase camera that frames portrait windows too, and
 // the death shake.
 //
-// From three.js r185: punctual light intensities are ÷ π (the engine's light
-// units); the sky ShaderMaterial is WGSL;
+// From three.js r185: punctual light intensities are the page's (engine.minor 23+);
+// the sky ShaderMaterial is WGSL;
 // the RoomEnvironment reflections are r185's (the renderer's room, moved down
-// 3.5 m as r183+ does); the grid is a WGSL plane; the post chain (GTAOPass, UnrealBloomPass threshold
+// 3.5 m as r183+ does); the grid is LineSegments as GridHelper builds them; the post chain (GTAOPass, UnrealBloomPass threshold
 // 0.86, the grade before the output, FXAA / SMAA / MSAA) is renderer.ao /
-// bloom / grade / antialias; the key light's fitted shadow box is the engine's
-// shadow `distance`; the floor's noise is a DataTexture with the same stream.
+// bloom / grade / antialias; the key light's shadow is the
+// page's own fitted ortho box, snapped to texels; the floor's noise is a DataTexture with the same stream.
 // The 2D fallback for browsers without WebGL is gone (the runtime draws
 // wherever it runs). Cosmetic randomness never touches the rules.
 import {
@@ -26,7 +26,7 @@ import {
   InstancedMesh, LinearFilter, LinearMipmapLinearFilter, LineBasicMaterial, LineSegments, Matrix4, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, OctahedronGeometry, PerspectiveCamera, PlaneGeometry, PMREMGenerator,
   PointLight, Points, PointsMaterial, Quaternion, RepeatWrapping, RingGeometry, RoomEnvironment, ShaderMaterial, SphereGeometry,
-  Sprite, SpriteMaterial, SRGBColorSpace, TorusGeometry, Vector2, Vector3, renderer, scene, type Material, type Object3D, type Texture,
+  Sprite, SpriteMaterial, SRGBColorSpace, OrthographicCamera, TorusGeometry, Vector3, renderer, scene, type Material, type Object3D, type Texture,
 } from "starhermit:scene";
 import { OffscreenCanvas } from "starhermit:canvas";
 import { C, type Level, type RunState } from "./game.ts";
@@ -50,14 +50,17 @@ renderer.toneMapping = ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 const camera = new PerspectiveCamera(55, 16 / 9, 0.1, 400);
 renderer.camera = camera;
-const ambient = new AmbientLight(0x334466, 0.35 / PI);
-const hemi = new HemisphereLight(0x6a8cff, 0x0a0614, 0.9 / PI);
-const keyLight = new DirectionalLight(0xffffff, 1.7 / PI);
+const ambient = new AmbientLight(0x334466, 0.35);
+const hemi = new HemisphereLight(0x6a8cff, 0x0a0614, 0.9);
+const keyLight = new DirectionalLight(0xffffff, 1.7);
 keyLight.position.set(6, 12, 8);
-// The old fitted box (28 × 20 m around the runner, near 1, far 40) is the engine's view distance.
-keyLight.shadow.distance = 40;
+// The browser build's fitted box: 28 × 20 m around the runner, near 1, far 40.
+const shadowCam = keyLight.shadow.camera as OrthographicCamera;
+shadowCam.left = -14; shadowCam.right = 14; shadowCam.top = 10; shadowCam.bottom = -10;
+shadowCam.near = 1; shadowCam.far = 40;
+shadowCam.updateProjectionMatrix();
 keyLight.shadow.bias = -0.0006;
-keyLight.shadow.normalBias = 1.5;
+keyLight.shadow.normalBias = 0.02;
 scene.add(ambient, hemi, keyLight, keyLight.target);
 
 // -- textures ----------------------------------------------------------------------------------
@@ -152,7 +155,7 @@ let trail: Points;
 let levelGroup: Group | null = null;
 let detailGroup: Group | null = null;
 let groundPlane: Mesh | null = null;
-let grid: Mesh | null = null;
+let grid: LineSegments | null = null;
 let pulseRings: Mesh[] = [];
 let checkpointRings: Mesh[] = [];
 let gemMeshes: Mesh[] = [];
@@ -190,7 +193,7 @@ function buildPlayer(): void {
     new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
   playerRing.rotation.x = PI / 2.5;
   player.add(playerRing);
-  playerLight = new PointLight(0x22d3ee, 12 / PI, 12);
+  playerLight = new PointLight(0x22d3ee, 12, 12);
   player.add(playerLight);
   playerHalo = new Sprite(new SpriteMaterial({ map: spriteTex, color: 0x22d3ee, transparent: true, opacity: 0.55, blending: AdditiveBlending, depthWrite: false }));
   playerHalo.scale.setScalar(PLAYER_RADIUS * 4);
@@ -337,29 +340,15 @@ function hash01(i: number, salt: number): number {
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
 }
 
-// GridHelper(size, divisions): a square of one-pixel lines centred on its
-// position. Drawn by a WGSL plane (one-pixel lines from the derivatives) rather
-// than LineSegments: on the engine, line segments that cross the camera's near
-// plane draw as filled garbage (reported; the grid's long lines run behind the
-// chase camera).
-const GRID_FRAG = /* wgsl */ `
-fn fragment(f: Fragment) -> vec4f {
-  let p = (f.world.xz - uniforms.uOrigin) / uniforms.uStep;
-  let w = max(fwidth(p), vec2f(0.0001));
-  let g = abs(fract(p - 0.5) - 0.5) / w;
-  let line = 1.0 - min(min(g.x, g.y), 1.0);
-  return vec4f(uniforms.uColor, line * 0.5);
-}`;
-function gridPlane(size: number, divisions: number, color: number, cx: number): Mesh {
-  const geo = new PlaneGeometry(size, size);
-  geo.rotateX(-PI / 2);
-  const mat = new ShaderMaterial({
-    uniforms: { uOrigin: { value: new Vector2(cx - size / 2, -size / 2) }, uStep: { value: size / divisions }, uColor: { value: new Color(color) } },
-    fragmentShader: GRID_FRAG, transparent: true, depthWrite: false, fog: true,
-  });
-  const m = new Mesh(geo, mat);
-  m.noAO = true;
-  return m;
+// GridHelper(size, divisions, color, color): a square of one-pixel lines
+// centred on its position, as three's GridHelper builds it (the engine clips
+// line segments at the near plane since 1.26).
+function gridLines(size: number, divisions: number, color: number): LineSegments {
+  const half = size / 2, step = size / divisions, pos: number[] = [];
+  for (let i = 0, k = -half; i <= divisions; i++, k += step) pos.push(-half, 0, k, half, 0, k, k, 0, -half, k, 0, half);
+  const geo = new BufferGeometry();
+  geo.setAttribute("position", new Float32BufferAttribute(pos, 3));
+  return new LineSegments(geo, new LineBasicMaterial({ color, transparent: true, opacity: 0.5 }));
 }
 
 /** Builds (or rebuilds) all level-dependent meshes. */
@@ -383,7 +372,7 @@ export function loadLevel(level: Level): void {
   groundPlane.receiveShadow = true;
   levelGroup.add(groundPlane);
   if (noiseTex) noiseTex.repeat.set(L / 6, 4);
-  grid = gridPlane(L, Math.floor(L / 2), p.grid, level.length / 2);
+  grid = gridLines(L, Math.floor(L / 2), p.grid);
   grid.position.set(level.length / 2, GROUND_Y + 0.01, 0);
   levelGroup.add(grid);
 
@@ -577,8 +566,10 @@ function drawWorld(px: number, py: number, nova: boolean, beatPhase: number, act
   }
   updateTrail(px, py, nova);
 
-  // the key light follows the run (the engine fits its shadow to the view)
-  const cx = Math.round(px + 5);
+  // the shadow box follows the runner, snapped to texels
+  const ms = keyLight.shadow.mapSize;
+  const texel = 28 / (typeof ms === "number" ? ms : ms.x);
+  const cx = Math.round((px + 5) / texel) * texel;
   keyLight.target.position.set(cx, 0, 0);
   keyLight.position.set(cx + 6, 14, 8);
 
