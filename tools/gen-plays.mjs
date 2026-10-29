@@ -5,7 +5,7 @@
 // lines, so the scripts replay the solver's runs exactly and check the final
 // score and time on the results.
 //
-// Timing (measured on the 1.22.0 render check, one fixed step a frame at the
+// Timing (measured on the 1.23.0 render check, one fixed step a frame at the
 // rules' 60 Hz): after the line that starts a run (the click on a stage, a
 // mode card's Play, Retry or Next stage) the 3-2-1 countdown takes 180
 // steps; a line after `frames F` that follows the starting line acts as the
