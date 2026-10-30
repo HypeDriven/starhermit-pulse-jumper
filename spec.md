@@ -3,7 +3,7 @@
 Pulse Jumper is a one-button rhythm platformer in a neon geometric world. The runner auto-runs along a
 course: jumps clear the low amber slabs, and a form change (PULSE ⇄ NOVA) phases through the tall violet
 gates. Checkpoints, gems and the finish beacon score points. It is a StarHermit engine **script game**
-(engine 1.24.0, host API 1.21, `engine.minor=20`), played natively by the StarHermit client and in
+(engine 1.28.0, host API 1.30, `engine.minor=30`), played natively by the StarHermit client and in
 browsers by the engine's web runtime from one package.
 
 ## Files
