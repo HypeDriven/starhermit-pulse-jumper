@@ -20,7 +20,7 @@ browsers by the engine's web runtime from one package.
 | `native/i18n.ts`, `native/style.ts`, `native/game.ts` | Strings, the UI style sheet, typed facade over the rules. |
 | `src/core/*.js` | The rules, content, save model, replay session and PRNG (pure ES modules, unchanged from the browser build). |
 | `src/progress.js` | The stored progress: normalize, merge, the browser build's cloud slot, legacy keys, the Daily streak. |
-| `src/strings.js`, `src/platform-i18n.js` | Translations (nine locales). |
+| `assets/strings.json` | Translations (nine locales, on the engine's `strings`; account lines are its `starhermit.*`). |
 | `tools/ui-style.css` → `assets/ui-style.json` | The style sheet, converted with `npm run css`. |
 | `score-script.js` | The platform script that range-checks a posted score for the `high-score` board. |
 | `index.html`, `starhermit-files.json` | The web loader and file index from `npm run package` (never edited by hand). |
@@ -90,11 +90,11 @@ windows. Punctual light intensities are ÷ π (engine light units); reflections 
 `new RoomEnvironment(renderer)` moved down 3.5 m (r183+), environment intensity 0.55, the floor its own
 envMap at 0.05.
 
-Per graphics tier (`frame().quality`; particle counts scale with `levelIndex` up to 2×):
+Per graphics tier (art by `frame().quality`; shadows, AO, bloom, grade and AA from the level's `levelSettings()`; particle counts scale with the level's particle budget up to 2×). At each tier's first level:
 
 | Tier | Shading | Shadows | AO | Bloom / grade | AA | Reflections | Particles | Detail |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Low | Lambert | off | off | off | MSAA | off | off | plain |
+| Low | Lambert | off | off | off | off | off | off | plain |
 | Balanced | standard | 1024 | off | on | FXAA | on | low | detailed |
 | High | clear-coated physical | 2048 | on | on | SMAA | on | high | detailed |
 | Ultra | clear-coated physical | 4096 | high | on | MSAA | on | high | detailed |
@@ -107,7 +107,7 @@ shake. The death shakes the camera.
 
 Authored clips per event (jump, form change, checkpoint, gem, death, win, UI; variants in turn) on the
 effects and interface buses, and the ambient kick-and-bass loop rendered once into a clip and looped on the
-music bus. Clips load one at a time once the mixer runs. Volumes, mute and the voice limit are the
+music bus. Clips load at once on start; the loop waits for the mixer. Volumes, mute and the voice limit are the
 runtime's Options. A hidden window silences everything.
 
 ## Platform
@@ -121,7 +121,7 @@ runtime's Options. A hidden window silences everything.
   keys are adopted when they are game options, then all of them are removed (volumes, mute, graphics,
   reduced motion, high contrast, larger text, language, `audio.options`, `graphics.gpu.*`).
 - **Leaderboard**: signed in, a finished Journey, Daily or Challenge run (cleared or wiped out) posts its
-  total (≥ 0) through `score-script.js` (a practice session carrying `{ type: 'result', scores }`), and the
+  total (≥ 0) through `score-script.js` (`leaderboards.submitScore`), and the
   results show the rank. Practice and lessons post nothing. Scores are range-checked by the server script
   (0–100000); per the solo policy, they are not re-simulated server-side.
 - **Achievements** (local, announced): First Clear, Journey Complete, Tutorial Graduate, Oof (wiped out

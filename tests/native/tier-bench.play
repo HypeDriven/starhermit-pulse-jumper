@@ -1,0 +1,20 @@
+# Graphics-level bench (tools/gen-plays.mjs; generated: do not edit): Practice 5 paused early in its countdown, the world still drawn and pulsing, 600 frames measured.
+until 300 Pulse Jumper
+frames 30
+click =▶ PLAY
+until 60 Choose a mode
+frames 10
+click Play — Practice
+until 60 Select a difficulty
+frames 10
+click =5
+frames 20
+key Escape 1
+until 60 Leave to title
+frames 120
+measure start
+frames 600
+measure stop
+click =Leave to title
+until 60 Progress
+frames 10

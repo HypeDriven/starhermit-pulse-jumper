@@ -1,14 +1,14 @@
-// The look per graphics level: the browser build's four presets and budgets
-// (src/render/gfx.js TABLE / BUDGETS, each tuned to hold 60 FPS on the
-// weakest GPU its Auto gave it) keyed by the runtime's quality tier
-// (frame().quality), with the beat particles scaled within the tier by the
-// level (frame().levelIndex, at most 2×), as the browser build scaled them by
-// its hardware level. The course, obstacle sizes, collision and timing are
-// identical on every tier — only visuals change. The runtime owns the rest of
-// the old Graphics panel: Auto and the level choice, render scale and the
-// pixel-ratio cap, adaptive resolution, the frame-rate limit and readout.
-// The panel's per-effect overrides are not offered (Options choose a level).
-import type { QualityTier } from "starhermit:engine";
+// The look per graphics level. The engine's level (levelSettings()) owns the
+// engine effects: shadow on/off and map size, AO, bloom, grade, anti-aliasing,
+// the texture cap, and how far the beat particles scale within the tier (the
+// level's particle budget over the tier's anchor level, at most 2×). The art
+// stays the browser build's four presets (src/render/gfx.js, each tuned to hold
+// 60 FPS), keyed by the level's quality tier. The course, obstacle sizes,
+// collision and timing are identical on every tier — only visuals change. The
+// runtime owns the rest of the old Graphics panel: Auto and the level choice,
+// render scale and the pixel-ratio cap, adaptive resolution, the frame-rate
+// limit and readout. The panel's per-effect overrides are not offered.
+import { levelSettings, type GraphicsLevel, type LevelSettings, type QualityTier } from "starhermit:engine";
 import type { AntialiasMode } from "starhermit:scene";
 
 export interface Budget {
@@ -22,17 +22,8 @@ export interface Budget {
   particles: number;
   /** Motion-trail points behind the runner (Particles high). */
   trail: number;
-  bloomRes: number;
-  aoRes: number;
 }
-export interface Look {
-  preset: QualityTier;
-  /** Key-light shadow map (0 = off). */
-  shadows: 0 | 1024 | 2048 | 4096;
-  ao: "off" | "on" | "high";
-  bloom: boolean;
-  grade: boolean;
-  antialias: AntialiasMode;
+interface Art {
   /** Image-based lighting from the room environment. */
   reflections: boolean;
   particles: "off" | "low" | "high";
@@ -40,36 +31,53 @@ export interface Look {
   animatedSky: boolean;
   /** Lane edges, skyline, slab edges, beacon glow, runner halo, the synth sun, the floor's roughness map. */
   detailed: boolean;
+}
+export interface Look extends Art {
+  preset: QualityTier;
+  /** Key-light shadow map, the level's size (0 = off). */
+  shadows: number;
+  ao: { resolution: number; samples: number; denoiseSamples: number } | null;
+  /** Bloom's resolution, the level's (null = off). */
+  bloom: number | null;
+  grade: boolean;
+  antialias: AntialiasMode;
   budget: Budget;
   /** Live beat particles (the Particles tier's share of the budget). */
   particleCount: number;
 }
 
-const TABLE: Record<QualityTier, Omit<Look, "preset" | "budget" | "particleCount">> = {
-  low: { shadows: 0, ao: "off", bloom: false, grade: false, antialias: "msaa", reflections: false, particles: "off", animatedSky: false, detailed: false },
-  balanced: { shadows: 1024, ao: "off", bloom: true, grade: true, antialias: "fxaa", reflections: true, particles: "low", animatedSky: true, detailed: true },
-  high: { shadows: 2048, ao: "on", bloom: true, grade: true, antialias: "smaa", reflections: true, particles: "high", animatedSky: true, detailed: true },
-  ultra: { shadows: 4096, ao: "high", bloom: true, grade: true, antialias: "msaa", reflections: true, particles: "high", animatedSky: true, detailed: true },
+const ART: Record<QualityTier, Art> = {
+  low: { reflections: false, particles: "off", animatedSky: false, detailed: false },
+  balanced: { reflections: true, particles: "low", animatedSky: true, detailed: true },
+  high: { reflections: true, particles: "high", animatedSky: true, detailed: true },
+  ultra: { reflections: true, particles: "high", animatedSky: true, detailed: true },
 };
 const BUDGETS: Record<QualityTier, Budget> = {
-  low: { material: "lambert", seg: 0.5, texture: 64, particles: 120, trail: 16, bloomRes: 0.5, aoRes: 0.5 },
-  balanced: { material: "standard", seg: 0.75, texture: 128, particles: 160, trail: 20, bloomRes: 0.5, aoRes: 0.5 },
-  high: { material: "physical", seg: 1, texture: 256, particles: 240, trail: 28, bloomRes: 0.5, aoRes: 0.5 },
-  ultra: { material: "physical", seg: 1.5, texture: 512, particles: 360, trail: 40, bloomRes: 1, aoRes: 1 },
+  low: { material: "lambert", seg: 0.5, texture: 64, particles: 120, trail: 16 },
+  balanced: { material: "standard", seg: 0.75, texture: 128, particles: 160, trail: 20 },
+  high: { material: "physical", seg: 1, texture: 256, particles: 240, trail: 28 },
+  ultra: { material: "physical", seg: 1.5, texture: 512, particles: 360, trail: 40 },
 };
 export const PARTICLE_MAX = 720;
 export const TRAIL_MAX = 40;
 const SHARE = { off: 0, low: 0.375, high: 1 };
-/** The first level index of each tier (quantum, molecular, terrestrial, galactic). */
-const TIER_FLOOR: Record<QualityTier, number> = { low: 0, balanced: 2, high: 4, ultra: 7 };
+const ANCHOR: Record<QualityTier, GraphicsLevel> = { low: "quantum", balanced: "molecular", high: "terrestrial", ultra: "galactic" };
 
-/** The look for a quality tier at a level index (0 … 9). */
-export function lookFor(preset: QualityTier, levelIndex: number): Look {
-  const b = { ...BUDGETS[preset] };
-  // Levels are about 1.64× apart in GPU throughput: the particle count grows
-  // with the level above the tier's first, at most 2× (gfx.js budgetFor).
-  const k = Math.min(2, Math.pow(1.64, Math.max(0, levelIndex - TIER_FLOOR[preset])));
-  b.particles = Math.min(PARTICLE_MAX, Math.round(b.particles * k));
-  const t = TABLE[preset];
-  return { preset, ...t, budget: b, particleCount: Math.round(b.particles * SHARE[t.particles]) };
+/** The look for a graphics level's settings. */
+export function lookFor(s: LevelSettings = levelSettings()): Look {
+  const preset = s.quality;
+  const k = Math.min(2, s.particles / levelSettings(ANCHOR[preset]).particles);
+  const b = BUDGETS[preset];
+  const budget = { ...b, texture: Math.min(b.texture, s.maxTextureSize), particles: Math.min(PARTICLE_MAX, Math.round(b.particles * k)) };
+  const art = ART[preset];
+  return {
+    preset, ...art,
+    shadows: s.shadows ? s.shadowMapSize : 0,
+    ao: s.ao && { resolution: s.ao.resolution, samples: s.ao.samples, denoiseSamples: s.ao.denoiseSamples },
+    bloom: s.bloom ? s.bloom.resolution : null,
+    grade: s.grade,
+    antialias: s.antialias,
+    budget,
+    particleCount: Math.round(budget.particles * SHARE[art.particles]),
+  };
 }

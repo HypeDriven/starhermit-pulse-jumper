@@ -164,4 +164,13 @@ write('menus.play', [
   'click =Retry', ...lines(p2.cmds), 'until 900 STAGE CLEAR', 'frames 20', `expect =${p2.score.total - 20}`, 'save cleared',
   'click =Title', 'until 60 Progress', 'frames 10',
 ]);
+
+// The graphics-level bench (tools/engine-tier-bench.mjs). Its --smoke window steps the rules by wall time, so a timed run wipes out there;
+// a run paused early in its countdown holds the same full world (course, post, beat motion) for any frame rate.
+write('tier-bench.play', [
+  'Graphics-level bench (tools/gen-plays.mjs; generated: do not edit): Practice 5 paused early in its countdown, the world still drawn and pulsing, 600 frames measured.',
+], [
+  'until 300 Pulse Jumper', 'frames 30', 'click =▶ PLAY', 'until 60 Choose a mode', 'frames 10', 'click Play — Practice', 'until 60 Select a difficulty', 'frames 10',
+  'click =5', 'frames 20', 'key Escape 1', 'until 60 Leave to title', 'frames 120', 'measure start', 'frames 600', 'measure stop', 'click =Leave to title', 'until 60 Progress', 'frames 10',
+]);
 }

@@ -1,24 +1,17 @@
 // Localization coverage: every English key the native client draws (T("…")
 // and N("…") in native/*.ts) is translated in every full locale (en-GB →
 // en-US, es-ES → es-419, fr-CA → fr-FR inherit), no table row is unused,
-// placeholders survive, and the account strings cover the nine locales.
+// placeholders survive; account strings are the engine's (S("…") → starhermit.*).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import vm from 'node:vm';
-import { platformStrings } from '../src/platform-i18n.js';
 
 const ROOT = new URL('../', import.meta.url);
 const read = (p) => readFileSync(new URL(p, ROOT), 'utf8');
 const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
 const FULL = ['es-419', 'de-DE', 'fr-FR', 'pt-BR', 'it-IT'];
 
-function tables() {
-  const sandbox = {};
-  sandbox.globalThis = sandbox;
-  vm.runInNewContext(read('src/strings.js'), sandbox);
-  return sandbox.PJ_STRINGS;
-}
+const tables = () => JSON.parse(read('assets/strings.json'));
 function usedKeys() {
   const keys = new Set();
   const lit = String.raw`"((?:[^"\\]|\\.)*)"`;
@@ -45,9 +38,4 @@ test('every key the client draws is translated in every locale; no unused rows; 
   }
   for (const loc of ['en-GB', 'es-ES', 'fr-CA']) if (!T[loc]) problems.push(`no ${loc} table`);
   assert.deepEqual(problems, []);
-});
-
-test('the account strings cover all nine locales', () => {
-  const keys = Object.keys(platformStrings('en-US'));
-  for (const l of LOCALES) for (const k of keys) assert.ok(platformStrings(l)[k], `${l} ${k}`);
 });

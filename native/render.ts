@@ -17,7 +17,7 @@
 // 3.5 m as r183+ does); the grid is LineSegments as GridHelper builds them; the post chain (GTAOPass, UnrealBloomPass threshold
 // 0.86, the grade before the output, FXAA / SMAA / MSAA) is renderer.ao /
 // bloom / grade / antialias; the key light's shadow is the
-// page's own fitted ortho box, snapped to texels; the floor's noise is a DataTexture with the same stream.
+// page's own fitted ortho box, snapped to texels; the floor's noise is a DataTexture of engine grain.
 // The 2D fallback for browsers without WebGL is gone (the runtime draws
 // wherever it runs). Cosmetic randomness never touches the rules.
 import {
@@ -29,6 +29,7 @@ import {
   Sprite, SpriteMaterial, SRGBColorSpace, OrthographicCamera, TorusGeometry, Vector3, renderer, scene, type Material, type Object3D, type Texture,
 } from "starhermit:scene";
 import { OffscreenCanvas } from "starhermit:canvas";
+import { createRandom } from "starhermit:engine";
 import { C, type Level, type RunState } from "./game.ts";
 import { PARTICLE_MAX, TRAIL_MAX, type Look } from "./quality.ts";
 
@@ -81,10 +82,9 @@ const spriteTex = makeSpriteTexture();
 /** The floor's roughness noise: the browser build's LCG stream, as bytes (grey 150–219). */
 function makeNoiseTexture(n: number): Texture {
   const data = new Uint8Array(n * n * 4);
-  let s = 1234567;
+  const grain = createRandom!(1234567).fill(new Float32Array(n * n));
   for (let i = 0; i < n * n; i++) {
-    s = (s * 1103515245 + 12345) & 0x7fffffff;
-    const v = 150 + Math.floor((s / 0x7fffffff) * 70);
+    const v = 150 + Math.floor(grain[i]! * 70);
     data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = v;
     data[i * 4 + 3] = 255;
   }
@@ -273,13 +273,13 @@ function applyPost(): void {
   renderer.shadowMap.enabled = look.shadows > 0;
   keyLight.castShadow = look.shadows > 0;
   if (look.shadows > 0) keyLight.shadow.mapSize = look.shadows;
-  const hi = look.ao === "high";
-  renderer.ao = look.ao === "off" ? null : {
-    blendIntensity: 0.75, radius: 0.9, distanceExponent: 1.5, thickness: 1.5, scale: 1.0, samples: hi ? 16 : 8, resolution: look.budget.aoRes,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: hi ? 6 : 4, rings: 2, samples: hi ? 16 : 8 },
+  const ao = look.ao, full = !!ao && ao.resolution >= 1; // the engine's AO quality: resolution < 1 = "on", ≥ 1 = "high"
+  renderer.ao = ao && {
+    blendIntensity: 0.75, radius: 0.9, distanceExponent: 1.5, thickness: 1.5, scale: 1.0, samples: ao.samples, resolution: ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: ao.denoiseSamples },
   };
   // high threshold: only emissive neon and bright highlights bloom
-  renderer.bloom = look.bloom ? { strength: 0.7, radius: 0.45, threshold: 0.86, resolution: look.budget.bloomRes } : null;
+  renderer.bloom = look.bloom === null ? null : { strength: 0.7, radius: 0.45, threshold: 0.86, resolution: look.bloom };
   // GradeShader on the linear HDR before the output: a 0.18 S-curve, 1.12 saturation, cool shadows / warm highlights, the 0.28 vignette
   renderer.grade = look.grade ? {
     space: "linear", contrastCurve: "s", contrast: 0.18, saturation: 1.12, shadows: [0.95, 0.98, 1.07], highlights: [1.03, 1.0, 0.97], split: [0.15, 0.7],

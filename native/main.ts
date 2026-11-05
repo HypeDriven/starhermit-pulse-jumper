@@ -22,7 +22,7 @@
 // as before: the latest action before a step is that step's command. The
 // world is drawn between steps by the frame's interpolation.
 import "./i18n.ts";
-import { clipboard, frame, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
+import { clipboard, frame, levelSettings, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
 import { isDown, onAction, onPointerButton, onTouch, primaryPointer } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded, requestSignIn } from "starhermit:platform";
@@ -308,8 +308,8 @@ function finishRun(): void {
 export function leaderboardLine(): string | null {
   const r = app.lb;
   if (!r) return null;
-  if (r === "posting") return S("lbPosting");
-  return !r.posted ? S("lbNotPosted") : r.rank ? S("lbRank", { rank: r.rank }) : S("lbPosted");
+  if (r === "posting") return S("leaderboardPosting");
+  return !r.posted ? S("leaderboardNotPosted") : r.rank ? S("leaderboardRank", { rank: r.rank }) : S("leaderboardPosted");
 }
 
 // ------------------------------------------------------------------ pause
@@ -332,7 +332,7 @@ export function copyInvite(): void {
   const link = platform.inviteLink();
   if (!link) return;
   try { clipboard.writeText(link); app.accountNote = () => S("inviteCopied"); }
-  catch { app.accountNote = () => S("inviteFailed", { link }); }
+  catch { app.accountNote = () => S("inviteLink", { link }); }
 }
 export function signIn(): void { click(); void requestSignIn().catch(() => undefined); }
 
@@ -386,24 +386,20 @@ onAction((e) => {
   }
 });
 
-const pendingActs: (() => void)[] = [];
-/** A widget's press, run once the frame's UI is built (state changes mid-build would break later widgets). */
-export function later(fn: () => void): void { pendingActs.push(fn); }
-
 // ------------------------------------------------------------------ boot and lifecycle
 let lookKey = "";
 function applyLook(): void {
   const f = frame();
-  const k = `${f.quality}:${f.levelIndex}`;
-  if (k === lookKey) return;
-  lookKey = k;
-  render.applyLook(lookFor(f.quality, f.levelIndex));
+  if (f.level === lookKey) return;
+  lookKey = f.level;
+  render.applyLook(lookFor(levelSettings(f.level)));
 }
 function applyOptions(): void { render.setTimingAssist(platform.options.timingAssist); }
 
 onStart(() => {
   setFixedRate(Math.round(1 / C.STEP_SECONDS));
   initStyles();
+  audio.loadSfx();
   platform.initPlatform();
   render.setReducedMotion(preferences().reducedMotion);
   applyOptions();
@@ -453,7 +449,6 @@ onUpdate((dt) => {
 onRender((alpha) => {
   hudRects.length = 0;
   drawScreens();
-  for (const fn of pendingActs.splice(0)) fn();
   pointerInput();
   const f = frame();
   const beat = (f.time / audio.BEAT_SECONDS) % 1;

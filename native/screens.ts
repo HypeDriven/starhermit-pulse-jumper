@@ -14,7 +14,7 @@
 // logical size: wide (≥ 1024 px: the title's rails at the sides) and short
 // landscape (≤ 500 px tall: smaller headings and touch buttons, tighter
 // gaps).
-import { frame, openMenu } from "starhermit:engine";
+import { afterRender, frame, openMenu } from "starhermit:engine";
 import { bindings } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
@@ -22,18 +22,16 @@ import { C, Levels, Rules } from "./game.ts";
 import { N, S, T } from "./i18n.ts";
 import * as platform from "./platform.ts";
 import {
-  app, chooseMode, copyInvite, hudRects, later, leaderboardLine, leaveToTitle, nextStage, objectiveText, open, openOverlay,
+  app, chooseMode, copyInvite, hudRects, leaderboardLine, leaveToTitle, nextStage, objectiveText, open, openOverlay,
   overlayBack, pauseGame, progress, resumeGame, retry, signIn, startRun, today, touchActed, touchOnly, queueAction, click,
 } from "./main.ts";
 
 // ------------------------------------------------------------------ layout
 interface Layout { lw: number; lh: number; sc: number; wide: boolean; short: boolean; narrow: boolean }
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
-  return { lw, lh, sc, wide: lw >= 1024, short: lh <= 500 && lw > lh, narrow: lw < 600 };
+  const v = ui.viewport!();
+  const lw = Math.max(1, v.width), lh = Math.max(1, v.height);
+  return { lw, lh, sc: v.scale, wide: lw >= 1024, short: lh <= 500 && lw > lh, narrow: v.widthClass === "compact" };
 }
 const lastSize = new Map<string, number>();
 // index.html's clamp(min, k·vw, max) font sizes (vw of the window's logical width)
@@ -68,7 +66,7 @@ function button(b: Btn, width: number | null = null): void {
     const inner = Math.max(20, width - 48);
     opts.content = () => { ui.style({ text: { align: "center", ...(inline.text?.size ? { size: inline.text.size } : {}) } }).paragraph(b.text, inner); };
   } else if (b.name) opts.content = () => { ui.style({ text: { weight: "bold" } }).label(b.text); };
-  if (ui.style(style, inline).id(b.id).button(b.name ?? b.text, opts) && fresh()) later(b.act);
+  if (ui.style(style, inline).id(b.id).button(b.name ?? b.text, opts) && fresh()) afterRender(b.act);
 }
 /** One full-width button a line (.settings-grid). */
 function stack(label: string, list: Btn[], width: number, gap = 10): ui.Rect {
@@ -76,20 +74,9 @@ function stack(label: string, list: Btn[], width: number, gap = 10): ui.Rect {
 }
 /** .btn-row: buttons at their own widths in centred rows that wrap at `width`. */
 function flow(label: string, list: Btn[], width: number, gap = 12): ui.Rect {
-  const rows: Btn[][] = [[]];
-  let used = 0;
-  const bw = (b: Btn): number => Math.min(width, buttonWidth(b.text, b.style ?? "btn-secondary"));
-  for (const b of list) {
-    const w = bw(b);
-    if (rows[rows.length - 1]!.length && used + gap + w > width) { rows.push([]); used = 0; }
-    used += (rows[rows.length - 1]!.length ? gap : 0) + w;
-    rows[rows.length - 1]!.push(b);
-  }
-  return ui.column(label, () => {
-    rows.forEach((row, ri) => ui.row(`${label}-r${ri}`, () => {
-      for (const b of row) button(b, bw(b) >= width ? width : null);
-    }, { spacing: gap, width, justify: "center" }));
-  }, { spacing: gap, width });
+  return ui.row(label, () => {
+    for (const b of list) button(b, buttonWidth(b.text, b.style ?? "btn-secondary") >= width ? width : null);
+  }, { wrap: true, width, gap, justify: "center" });
 }
 /** Text up to `width` wide: one label when it fits, else a paragraph. */
 function para(text: string, width: number, cls = "subtitle", id?: string, align: "start" | "center" = "center"): void {
@@ -284,7 +271,7 @@ function journeyScreen(w: number, L: Layout): void {
             locked ? T("Locked") : best !== undefined ? T("Best: {n}", { n: best }) : T("Not cleared yet")].filter(Boolean).join(", ");
           const opts: ui.ButtonOptions = { content: () => ui.label(locked ? "🔒" : String(i)) };
           if (locked) opts.disabled = true;
-          if (ui.style(cls, { width: cw }).id(`stage-${i}`).button(name, opts) && fresh() && !locked) later(() => chooseMode("journey", i));
+          if (ui.style(cls, { width: cw }).id(`stage-${i}`).button(name, opts) && fresh() && !locked) afterRender(() => chooseMode("journey", i));
         }
       }, { spacing: gapX });
     }
@@ -419,7 +406,7 @@ function settingsScreen(w: number): void {
     const check = (key: "leftHanded" | "timingAssist", text: string): void => {
       const cur = platform.options[key];
       const next = ui.id(`set-${key}`).checkbox(T(text), cur);
-      if (next !== cur) later(() => { platform.setOption(key, next); click(); });
+      if (next !== cur) afterRender(() => { platform.setOption(key, next); click(); });
     };
     check("leftHanded", N("Left-handed touch controls"));
     check("timingAssist", N("Timing assist (landing marker)"));
@@ -475,7 +462,7 @@ function hud(L: Layout): void {
   const pr = ui.place("hud-pause", { anchor: "top-end", x: 14, y: 8 }, () => {
     const opts: ui.ButtonOptions = { content: pauseBars };
     if (!live) opts.disabled = true;
-    if (ui.style("icon-btn").id("btn-pause").button(T("Pause game"), opts) && fresh() && live) later(() => { ui.setFocus(null); pauseGame(); });
+    if (ui.style("icon-btn").id("btn-pause").button(T("Pause game"), opts) && fresh() && live) afterRender(() => { ui.setFocus(null); pauseGame(); });
   });
   rect(pr);
   // #touch-actions: FORM (left) and JUMP (right), swapped for the left-handed
@@ -493,7 +480,7 @@ function hud(L: Layout): void {
         if (!live) opts.disabled = true;
         const res = ui.style(action === "jump" ? "touch-jump" : "touch-form", { width: bw, ...(L.short ? { minHeight: 56 } : {}) }).id(`touch-${action}`).button(name, opts);
         // a pointer press acted at once (pointerInput); the release's activation comes from keys or a11y only
-        if (res && fresh() && live && frame().frame - touchActed[action] > 90) later(() => { ui.setFocus(null); queueAction(action); });
+        if (res && fresh() && live && frame().frame - touchActed[action] > 90) afterRender(() => { ui.setFocus(null); queueAction(action); });
       });
       rect(r, action);
     };
