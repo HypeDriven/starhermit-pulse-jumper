@@ -1,0 +1,103 @@
+{
+  "game": {
+    "id": "c587e371-5257-4109-b0ee-a9956ae4862d",
+    "displayName": "Pulse Jumper",
+    "hosting": {
+      "hostingEnabled": true,
+      "hostedUrl": "https://c587e371-5257-4109-b0ee-a9956ae4862d.starhermit.com/index.html",
+      "deployStatus": "live",
+      "pinnedCommitSha": null,
+      "deployedCommitSha": null,
+      "deployError": null,
+      "deployedAt": "2026-11-12T08:16:59.909176+00:00",
+      "externalLaunchUrl": null,
+      "engineVersion": "1.38.0",
+      "deployWarning": null
+    }
+  },
+  "publishedAt": "2026-11-12T08:17:04.728Z",
+  "sourceCommit": "5f6b745325e229eb19d1cdeb6114eecd3873a538",
+  "bytesReceived": 1160702,
+  "archiveSha256": "f51ec47810ddcef7d3ed29ddf21dc1c2e9bdc08b838fe688d7a262155ece4e80",
+  "indexSha256": "c509d6f801ab1b1ae63709de34a9c77fee281b1de226bc357474dca5ad2de560",
+  "result": {
+    "clientPublished": true,
+    "serverImageLoaded": false,
+    "imageDigest": null,
+    "bytesReceived": 1160702,
+    "mode": "replace",
+    "filesRemoved": 0,
+    "engineVersion": "1.38.0",
+    "deployWarning": null
+  },
+  "liveVerification": {
+    "at": "2026-11-12T08:17:04.728Z",
+    "files": [
+      {
+        "file": "starhermit-files.json",
+        "sha256": "c509d6f801ab1b1ae63709de34a9c77fee281b1de226bc357474dca5ad2de560",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/Hebrew.ttf",
+        "sha256": "5a410e2c3b01bce56740c456603eb1206881df486b089be22e20ebb8eff7f0d1",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/Japanese.otf",
+        "sha256": "af94d5399926b0654c392d10ff404bb3faa1c914a7503f01502dd6d6b37a4ff9",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/Khmer.ttf",
+        "sha256": "2affee601b5f1ee209613408752b9c08219ac63191fe024922eef1c7ed53ae28",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/SimplifiedChinese.otf",
+        "sha256": "7a1d028c90af4b07232f288d5c980e751cb74e891d80f0b498d2a7319bad8341",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/Tamil.ttf",
+        "sha256": "4931d7c7eabffa17ef8d64cd0cf871a59cdc862ccb96f46effe6ccdecb8bd2a4",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/TraditionalChinese.otf",
+        "sha256": "c0b5ae8c2819949eed1789ebfa5c017aeadb3bcafda258e4b391389c8da12a7f",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/common.json",
+        "sha256": "583073fff58741912c2412d55004ad3ff8374d3b8360c7a3230fe55035ee2bd4",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/fonts.json",
+        "sha256": "37beaea0dba54c9f2c45995cbf9fd19fad21719d701718c41d7e58dd7748ca13",
+        "status": 200
+      },
+      {
+        "file": "assets/localization/locales.json",
+        "sha256": "1d317cc9be0a47596ef82f1356cc9c06cb7bdc2ef2f608820d958701b8d95613",
+        "status": 200
+      },
+      {
+        "file": "assets/strings.json",
+        "sha256": "1d6e67b76972d210d68710d4b6952ca323100a1c6e8a18e13e7f720241d8363d",
+        "status": 200
+      },
+      {
+        "file": "index.html",
+        "sha256": "fad5d0e9cba30a8b537b163c501e49be1be14424f816b354ce57b90bc2014ebb",
+        "status": 200
+      },
+      {
+        "file": "starhermit.txt",
+        "sha256": "ee9720abff0d811e153760976be66ec64f177a07437f42c2601cfa25b6bc73f4",
+        "status": 200
+      }
+    ]
+  }
+}
