@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Pulse Jumper on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
 // the engine's web runtime. The rules (src/core/rules.js) and the content
@@ -446,7 +447,7 @@ onUpdate((dt) => {
   applyContrast(ui.preferences().highContrast);
   audio.update();
 });
-onRender((alpha) => {
+onRender(__l10nRender((alpha) => {
   hudRects.length = 0;
   drawScreens();
   pointerInput();
@@ -461,4 +462,8 @@ onRender((alpha) => {
     render.tick(frameDt);
     render.drawIdle(idleT, beat, f.width, f.height);
   }
-});
+}));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.ts";
+__installLanguageMenu(false);

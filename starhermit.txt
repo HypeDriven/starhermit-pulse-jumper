@@ -30,3 +30,7 @@ engine.group.pause=Run
 engine.gamepad.jump=South+DpadUp+LeftStickUp
 engine.gamepad.form=East+West+DpadDown+LeftStickDown
 engine.gamepad.pause=Start
+
+# Game language (saved per player); Automatic follows the account/device.
+control.localization=F2 | Language
+engine.group.localization=Interface

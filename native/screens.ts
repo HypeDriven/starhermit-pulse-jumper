@@ -1,3 +1,6 @@
+import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
+// localization-runtime:attached
+import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
 // The browser build's DOM shell (index.html + src/ui/dom-ui.js) as
 // starhermit:ui, built every frame over the world: the title over its
 // see-through wash (Pulse Jumper, the tagline, PLAY, Daily, Journey, Learn,
@@ -14,7 +17,23 @@
 // logical size: wide (≥ 1024 px: the title's rails at the sides) and short
 // landscape (≤ 500 px tall: smaller headings and touch buttons, tighter
 // gaps).
-import { afterRender, frame, openMenu } from "starhermit:engine";
+// The browser build's DOM shell (index.html + src/ui/dom-ui.js) as
+// starhermit:ui, built every frame over the world: the title over its
+// see-through wash (Pulse Jumper, the tagline, PLAY, Daily, Journey, Learn,
+// Help, Settings, Invite / Sign in, the account note; the Progress and Today
+// rails, beside the menu on wide windows and under it on narrow ones); the
+// mode cards; the Journey grid of 40 stages with locks and gold-bordered
+// mastery trials; Practice's difficulty 1–5; the two Challenge cards; the
+// pause screen; the results (headline, the score table, the time line, the
+// best score, the leaderboard line and, signed in, the Daily's board); How to
+// play with the effective keys; Settings (the game's two options and the
+// runtime's Options); the countdown; the run's HUD (score, progress bar,
+// PULSE / NOVA badge, pause button, objective line) and the JUMP / FORM
+// touch buttons. The old media queries are layouts picked by the window's
+// logical size: wide (≥ 1024 px: the title's rails at the sides) and short
+// landscape (≤ 500 px tall: smaller headings and touch buttons, tighter
+// gaps).
+import { afterRender, frame } from "starhermit:engine";
 import { bindings } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
@@ -64,9 +83,9 @@ function button(b: Btn, width: number | null = null): void {
   const [, inline] = sized(style, s);
   if (width != null && buttonWidth(b.text, style) > width) {
     const inner = Math.max(20, width - 48);
-    opts.content = () => { ui.style({ text: { align: "center", ...(inline.text?.size ? { size: inline.text.size } : {}) } }).paragraph(b.text, inner); };
-  } else if (b.name) opts.content = () => { ui.style({ text: { weight: "bold" } }).label(b.text); };
-  if (ui.style(style, inline).id(b.id).button(b.name ?? b.text, opts) && fresh()) afterRender(b.act);
+    opts.content = () => { ui.style(__l10nStyle({ text: { align: "center", ...(inline.text?.size ? { size: inline.text.size } : {}) } })).paragraph(b.text, inner); };
+  } else if (b.name) opts.content = () => { ui.style(__l10nStyle({ text: { weight: "bold" } })).label(b.text); };
+  if (ui.style(__l10nStyle(style), __l10nStyle(inline)).id(b.id).button(b.name ?? b.text, opts) && fresh()) afterRender(b.act);
 }
 /** One full-width button a line (.settings-grid). */
 function stack(label: string, list: Btn[], width: number, gap = 10): ui.Rect {
@@ -81,14 +100,14 @@ function flow(label: string, list: Btn[], width: number, gap = 12): ui.Rect {
 /** Text up to `width` wide: one label when it fits, else a paragraph. */
 function para(text: string, width: number, cls = "subtitle", id?: string, align: "start" | "center" = "center"): void {
   if (!text) return;
-  let u = ui.style(...sized(cls, { text: { align } }));
+  let u = ui.style(...__l10nStyle(sized(cls, { text: { align } })));
   if (id) u = u.id(id);
   if (textWidth(text, cls) <= width) u.label(text);
   else u.paragraph(text, width);
 }
 function heading(cls: string, text: string, width: number, id?: string): void {
   if (textWidth(text, cls, "heading") <= width) (id ? ui.id(id) : ui).style(...sized(cls)).heading(text);
-  else ui.style(...sized(cls, { text: { align: "center" } })).paragraph(text, width);
+  else ui.style(...__l10nStyle(sized(cls, { text: { align: "center" } }))).paragraph(text, width);
 }
 function rect(r: ui.Rect, action?: "jump" | "form"): void {
   hudRects.push({ x: r.x, y: r.y, width: r.width, height: r.height, ...(action ? { action } : {}) });
@@ -271,7 +290,7 @@ function journeyScreen(w: number, L: Layout): void {
             locked ? T("Locked") : best !== undefined ? T("Best: {n}", { n: best }) : T("Not cleared yet")].filter(Boolean).join(", ");
           const opts: ui.ButtonOptions = { content: () => ui.label(locked ? "🔒" : String(i)) };
           if (locked) opts.disabled = true;
-          if (ui.style(cls, { width: cw }).id(`stage-${i}`).button(name, opts) && fresh() && !locked) afterRender(() => chooseMode("journey", i));
+          if (ui.style(__l10nStyle(cls), __l10nStyle({ width: cw })).id(`stage-${i}`).button(name, opts) && fresh() && !locked) afterRender(() => chooseMode("journey", i));
         }
       }, { spacing: gapX });
     }
@@ -334,9 +353,9 @@ function resultsScreen(w: number): void {
   const c2 = Math.max(...rows.map(([, v]) => textWidth(String(v), "td-total"))) + 8;
   const tw = Math.min(w, c1 + c2 + 32 + 32);
   ui.column("results-table", () => rows.forEach(([k, v, total], i) => ui.row(`res-${i}`, () => {
-    ui.style(total ? "td-total" : "td").label(k);
+    ui.style(__l10nStyle(total ? "td-total" : "td")).label(k);
     ui.spacer();
-    ui.style(total ? "td-total" : "td").id(`res-${i}-v`).label(String(v));
+    ui.style(__l10nStyle(total ? "td-total" : "td")).id(`res-${i}-v`).label(String(v));
   }, { style: total ? "tr-total" : "tr", width: tw, align: "center" })), { spacing: 0, width: tw });
   R.lines.forEach((line, i) => para(line(), w, "subtitle", `results-line-${i}`));
   if (R.best !== null) para(T("Best score: {n}", { n: R.best }), w, "best-line", "results-best");
@@ -411,7 +430,7 @@ function settingsScreen(w: number): void {
     check("leftHanded", N("Left-handed touch controls"));
     check("timingAssist", N("Timing assist (landing marker)"));
     para(T("Sound, graphics, language, reduced motion, high contrast and larger text are in the StarHermit Options."), fw, "setting-label", "options-note", "start");
-    button({ id: "btn-options", text: T("Open Options"), act: () => { click(); openMenu(); } });
+    button({ id: "btn-options", text: T("Open Options"), act: () => { click(); __l10nOptions(); } });
   }, { spacing: 12, width: fw });
   backButton("btn-back", overlayBack);
 }
@@ -420,7 +439,7 @@ function settingsScreen(w: number): void {
 function countdownScreen(L: Layout): void {
   backdrop("screen", L);
   const size = Math.max(32, Math.min(60, L.lw * 0.07));
-  ui.place("countdown", "center", () => ui.style("countdown", { text: { size } }).id("countdown-text").label(String(Math.max(1, app.countdown))));
+  ui.place("countdown", "center", () => ui.style(__l10nStyle("countdown"), __l10nStyle({ text: { size } })).id("countdown-text").label(String(Math.max(1, app.countdown))));
 }
 function pauseBars(): void {
   ui.widget("", {
@@ -444,8 +463,8 @@ function hud(L: Layout): void {
   ui.place("hud", { anchor: "top-start", x: 0, y: 0 }, () => {
     ui.column("hud-col", () => {
       ui.row("hud-row", () => {
-        ui.style("hud-label").id("hud-score-label").label(T("SCORE"));
-        ui.style(...sized("hud-score")).id("hud-score").label(String(total));
+        ui.style(__l10nStyle("hud-label")).id("hud-score-label").label(T("SCORE"));
+        ui.style(...__l10nStyle(sized("hud-score"))).id("hud-score").label(String(total));
         ui.widget(T("Level progress"), {
           role: "meter", size: { width: barW, height: 8 }, value: pct, min: 0, max: 100,
           draw: (rr, ws) => {
@@ -453,7 +472,7 @@ function hud(L: Layout): void {
             if (pct > 0) draw.box(rr.x, rr.y, Math.max(rr.height, rr.width * pct / 100), rr.height, { background: ws.highContrast ? "#ffff00" : "#fde047", radius: 4 });
           },
         });
-        ui.column("hud-form", () => ui.style(...sized(nova ? "hud-form-nova-text" : "hud-form-text")).id("hud-form-text").label(nova ? "NOVA" : "PULSE"), { style: nova ? "hud-form-nova" : "hud-form" });
+        ui.column("hud-form", () => ui.style(...__l10nStyle(sized(nova ? "hud-form-nova-text" : "hud-form-text"))).id("hud-form-text").label(nova ? "NOVA" : "PULSE"), { style: nova ? "hud-form-nova" : "hud-form" });
       }, { width: L.lw, height: 52, spacing: 14, align: "center", padding: { top: 8, bottom: 0, start: 14, end: 14 } });
       ui.column("hud-objective-col", () => para(objectiveText(), L.lw - 28, "hud-objective", "hud-objective", "start"), { padding: { start: 14, end: 14, top: 0, bottom: 0 } });
     }, { spacing: 6 });
@@ -462,7 +481,7 @@ function hud(L: Layout): void {
   const pr = ui.place("hud-pause", { anchor: "top-end", x: 14, y: 8 }, () => {
     const opts: ui.ButtonOptions = { content: pauseBars };
     if (!live) opts.disabled = true;
-    if (ui.style("icon-btn").id("btn-pause").button(T("Pause game"), opts) && fresh() && live) afterRender(() => { ui.setFocus(null); pauseGame(); });
+    if (ui.style(__l10nStyle("icon-btn")).id("btn-pause").button(T("Pause game"), opts) && fresh() && live) afterRender(() => { ui.setFocus(null); pauseGame(); });
   });
   rect(pr);
   // #touch-actions: FORM (left) and JUMP (right), swapped for the left-handed
@@ -475,10 +494,10 @@ function hud(L: Layout): void {
       const name = action === "jump" ? T("Jump (Space or right tap)") : T("Form (F or left tap)");
       const r = ui.place(`touch-${action}`, { anchor, x: 16, y: 10 }, () => {
         const opts: ui.ButtonOptions = {
-          content: () => { ui.style("touch-big").label(big); ui.style("touch-small").label(small); },
+          content: () => { ui.style(__l10nStyle("touch-big")).label(big); ui.style(__l10nStyle("touch-small")).label(small); },
         };
         if (!live) opts.disabled = true;
-        const res = ui.style(action === "jump" ? "touch-jump" : "touch-form", { width: bw, ...(L.short ? { minHeight: 56 } : {}) }).id(`touch-${action}`).button(name, opts);
+        const res = ui.style(__l10nStyle(action === "jump" ? "touch-jump" : "touch-form"), __l10nStyle({ width: bw, ...(L.short ? { minHeight: 56 } : {}) })).id(`touch-${action}`).button(name, opts);
         // a pointer press acted at once (pointerInput); the release's activation comes from keys or a11y only
         if (res && fresh() && live && frame().frame - touchActed[action] > 90) afterRender(() => { ui.setFocus(null); queueAction(action); });
       });
