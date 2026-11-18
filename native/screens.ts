@@ -115,7 +115,7 @@ function rect(r: ui.Rect, action?: "jump" | "form"): void {
 const gap = (h: number): void => { ui.widget("", { role: "none", size: { width: 1, height: h } }); };
 
 // ------------------------------------------------------------------ the frame
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   LW = L.lw;
   const f = frame();
@@ -506,4 +506,11 @@ function hud(L: Layout): void {
     tb("form", lefty ? "bottom-end" : "bottom-start");
     tb("jump", lefty ? "bottom-start" : "bottom-end");
   }
+}
+
+export function drawScreens(): void {
+  if (app.screen !== "help") { drawScreensImmediate(); return; }
+  const actions = ["jump","form","pause"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
 }
