@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T07:01:06.081783+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-18T17:52:34.492144+00:00",
+    "coverArtUpdatedAt": "2026-11-22T14:25:43.962573+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-18T17:52:34.481551+00:00",
+      "deployedAt": "2026-11-22T14:25:43.952539+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.44.1",
+      "engineVersion": "1.47.0",
       "deployWarning": null
     },
     "description": "Time jumps and form changes to cross a neon obstacle course synchronized to music.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-18T17:52:34.462Z",
-  "sourceCommit": "346d4413759351b156bca02c9957a7651fc54d00",
-  "bytesReceived": 1170849,
-  "archiveSha256": "6cb3281841b07ac1f45497b60fb8f98e3fecb0e1bdd70c46d9a8c6502dc20123",
+  "publishedAt": "2026-11-22T14:25:44.349Z",
+  "sourceCommit": "429ea69cc4a85919394d077e5c62a8080a87bd76",
+  "bytesReceived": 1171036,
+  "archiveSha256": "47414b4b5cb2cab9914d7c1e7e78cf9d928528dbf5aa32e32a0d9e30f861ae87",
   "indexSha256": "820575a3a5a0cd92e208dddf6ea1914b6b0903f805bbd12d63c125f989435516",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 1170849,
+    "bytesReceived": 1171036,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.44.1",
+    "engineVersion": "1.47.0",
     "deployWarning": null
   },
   "liveVerification": {
