@@ -372,10 +372,14 @@ export function loadLevel(level: Level): void {
   groundPlane.rotation.x = -PI / 2;
   groundPlane.position.set(level.length / 2, GROUND_Y, 0);
   groundPlane.receiveShadow = true;
+  // Still scenery (host API 1.49): the floor, grid, lane edges, skyline, slabs, gate arches and the finish
+  // beacon stand where the level puts them. Gems, swirls, checkpoint rings and particles move.
+  groundPlane.movable = false;
   levelGroup.add(groundPlane);
   if (noiseTex) noiseTex.repeat.set(L / 6, 4);
   grid = gridLines(L, Math.floor(L / 2), p.grid);
   grid.position.set(level.length / 2, GROUND_Y + 0.01, 0);
+  grid.movable = false;
   levelGroup.add(grid);
 
   // detail: glowing lane edges, distant skyline silhouettes, neon slab edges
@@ -383,6 +387,7 @@ export function loadLevel(level: Level): void {
   for (const z of [-2.3, 2.3]) {
     const strip = new Mesh(new BoxGeometry(L, 0.05, 0.1), laneMat);
     strip.position.set(level.length / 2, GROUND_Y + 0.03, z);
+    strip.movable = false;
     detailGroup.add(strip);
   }
   const towers = Math.max(12, Math.floor((level.length + 160) / 7));
@@ -398,6 +403,7 @@ export function loadLevel(level: Level): void {
     m4.compose(ps.set(x, GROUND_Y, z), qd, sc.set(wdt, hgt, wdt)); tMesh.setMatrixAt(i, m4);
     m4.compose(ps.set(x, GROUND_Y + hgt, z), qd, sc.set(wdt * 1.02, 0.25, wdt * 1.02)); capMesh.setMatrixAt(i, m4);
   }
+  tMesh.movable = capMesh.movable = false;
   detailGroup.add(tMesh, capMesh);
 
   // obstacles: low = a flat wide slab (jump), gate = a tall arch (phase through)
@@ -412,9 +418,11 @@ export function loadLevel(level: Level): void {
       const m = new Mesh(new BoxGeometry(1.2, 1.5, 3.2), lowMat);
       m.position.set(o.x, GROUND_Y + 0.75, 0);
       m.castShadow = true; m.receiveShadow = true;
+      m.movable = false;
       levelGroup.add(m);
       const cap = new Mesh(new BoxGeometry(1.3, 0.12, 3.3), capMat);
       cap.position.set(o.x, GROUND_Y + 1.5 + 0.06, 0);
+      cap.movable = false;
       levelGroup.add(cap);
       for (let i = 0; i < edgeSrc.length; i += 3) edgePos.push(edgeSrc[i]! * 1.01 + o.x, edgeSrc[i + 1]! * 1.01 + GROUND_Y + 0.75, edgeSrc[i + 2]! * 1.01);
     } else {
@@ -423,11 +431,13 @@ export function loadLevel(level: Level): void {
         const pillar = new Mesh(new CylinderGeometry(0.28, 0.4, 6, seg(12, 6)), gateMat);
         pillar.position.set(o.x, GROUND_Y + 3, dz);
         pillar.castShadow = true;
+        pillar.movable = false;
         arch.add(pillar);
       }
       const bar = new Mesh(new BoxGeometry(0.6, 0.5, 3.8), gateMat);
       bar.position.set(o.x, GROUND_Y + 6.1, 0);
       bar.castShadow = true;
+      bar.movable = false;
       arch.add(bar);
       const swirl = new Mesh(new TorusGeometry(1.1, 0.05, seg(8, 4), seg(48, 16)), swirlMat);
       swirl.position.set(o.x, GROUND_Y + 1.6, 0);
@@ -440,7 +450,9 @@ export function loadLevel(level: Level): void {
   if (edgePos.length) {
     const eg = new BufferGeometry();
     eg.setAttribute("position", new Float32BufferAttribute(edgePos, 3));
-    detailGroup.add(new LineSegments(eg, new LineBasicMaterial({ color: new Color(0xffc56b).multiplyScalar(1.8) })));
+    const edges = new LineSegments(eg, new LineBasicMaterial({ color: new Color(0xffc56b).multiplyScalar(1.8) }));
+    edges.movable = false;
+    detailGroup.add(edges);
   }
 
   // gems: spinning, gently bobbing octahedrons
@@ -469,11 +481,13 @@ export function loadLevel(level: Level): void {
   // the finish beacon
   const fin = new Mesh(new CylinderGeometry(0.15, 0.15, 10, 8), new MeshBasicMaterial({ color: new Color(0xffffff).multiplyScalar(1.6) }));
   fin.position.set(level.length, GROUND_Y + 5, 0);
+  fin.movable = false;
   levelGroup.add(fin);
   const finGlow = new Mesh(new CylinderGeometry(0.6, 0.6, 10, seg(16, 8), 1, true),
     new MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.18, blending: AdditiveBlending, depthWrite: false }));
   finGlow.position.copy(fin.position);
   finGlow.noAO = true;
+  finGlow.movable = false;
   detailGroup.add(finGlow);
 
   // the timing-assist landing marker (shown per frame in update())
