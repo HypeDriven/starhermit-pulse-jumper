@@ -3,7 +3,7 @@
 Pulse Jumper is a one-button rhythm platformer in a neon geometric world. The runner auto-runs along a
 course: jumps clear the low amber slabs, and a form change (PULSE ⇄ NOVA) phases through the tall violet
 gates. Checkpoints, gems and the finish beacon score points. It is a StarHermit engine **script game**
-(engine 1.50.0, host API 1.50, `engine.minor=50`), played natively by the StarHermit client and in
+(engine 1.53.0, host API 1.53, `engine.minor=53`), played natively by the StarHermit client and in
 browsers by the engine's web runtime from one package.
 
 ## Files
@@ -171,16 +171,18 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 <!-- regional-localization:end -->
 
-## Engine 1.50.0
+## Engine 1.53.0
 
-Browser play uses the StarHermit 1.50.0 web runtime on WebGPU, or WebGL 2 where WebGPU is missing. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the StarHermit 1.53.0 web runtime on WebGPU, or WebGL 2 where WebGPU is missing. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
 
 Browser rendering uses the engine's asynchronous pipeline creation so newly encountered materials do not stall the page. Native play retains the engine's synchronous pipeline behavior.
 
-**Frame rate (host API 1.49 `setTargetFps`).** Under a finger (`primaryPointer() === "coarse"`) the game caps itself at 30 frames a second on the phone graphics levels (`levelIndex` ≤ 3), where steady 33 ms frames replace uneven ones; elsewhere, the title included (the idle run shows behind its wash), there is no game cap. The run steps on the fixed update, so jump timing is unchanged. The engine sets the cap aside while its menus are open, and the player's Frame rate limit still applies.
+**Frame rate (host API 1.53 `setTargetFps`).** Under a finger (`primaryPointer() === "coarse"`) the game caps itself at 30 frames a second on the phone graphics levels (`levelIndex` ≤ 3), where steady 33 ms frames replace uneven ones; elsewhere, the title included (the idle run shows behind its wash), there is no game cap. The run steps on the fixed update, so jump timing is unchanged. The engine sets the cap aside while its menus are open, and the player's Frame rate limit still applies.
 
-**Still scenery (host API 1.49).** Each level's floor, grid, lane edges, skyline towers and caps, slabs with their caps and neon edges, gate pillars and bars, and the finish beacon are `movable = false`, so shadow maps cache the obstacles from the first frame. The runner, gems, gate swirls, checkpoint rings, landing marker, particles and the camera-following sky stay movable. The sky's time uniform stays: its clock freezes under Reduced motion and drops to 0 on a still sky.
+**Still scenery (host API 1.53).** Each level's floor, grid, lane edges, skyline towers and caps, slabs with their caps and neon edges, gate pillars and bars, and the finish beacon are `movable = false`, so shadow maps cache the obstacles from the first frame. The runner, gems, gate swirls, checkpoint rings, landing marker, particles and the camera-following sky stay movable. The sky's time uniform stays: its clock freezes under Reduced motion and drops to 0 on a still sky.
 
 Higher graphics tiers use native per-object motion blur for moving pieces and effects. Camera motion stays sharp, lower tiers omit the effect, and the runtime's Motion blur and Reduce motion preferences remain authoritative.
+
+On engine 1.53.0, browser play through WebGL 2 compiles a frame's shader programs together and holds that frame until they are linked, blends skinned meshes in one pass, reuses the window pass's depth, and uses a hardware WebGL 2 context when WebGPU's adapter is software.
