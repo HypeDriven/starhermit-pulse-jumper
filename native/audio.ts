@@ -76,11 +76,20 @@ export function loadSfx(): void {
       if (list.length) banks.set(type, new SoundBank({ clips: list, order: "sequence", bus: type === "ui" ? "interface" : "effects" }));
     });
   }
-  renderLoop().then((c) => { loopClip = c; }, (e: unknown) => { console.warn(`audio: ${String(e)}`); });
 }
 
 /** Each frame: the loop once the mixer runs, then its level. */
+let __bedsStarted = false;
+function startBeds(): void {
+  if (__bedsStarted) return;
+  __bedsStarted = true;
+  void (async () => {
+    renderLoop().then((c) => { loopClip = c; }, (e: unknown) => { console.warn(`audio: ${String(e)}`); });
+  })();
+}
+
 export function update(): void {
+  startBeds();
   if (context.state !== "running" || !loopClip) return;
   if (!loopVoice) {
     try { loopVoice = playClip(loopClip, { bus: "music", loop: true, gain: 0 }); } catch { loopVoice = null; }
